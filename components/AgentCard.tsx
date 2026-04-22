@@ -3,7 +3,7 @@
 import { SELAgentCard } from '@/types';
 import Link from 'next/link';
 import { Badge, Code } from 'lucide-react';
-import DownloadModal from './DownloadModal';
+import DownloadButton from './DownloadButton';
 
 interface AgentCardProps {
   agent: SELAgentCard;
@@ -131,7 +131,7 @@ export default function AgentCard({ agent, category, subcategory }: AgentCardPro
 
         {/* Download Buttons - Positioned at bottom */}
         <div className="mt-4 pt-4 border-t border-gray-100">
-          <DownloadModal agent={agent} />
+          <DownloadButton agent={agent} />
         </div>
       </div>
     </Link>

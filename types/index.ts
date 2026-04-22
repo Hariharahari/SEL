@@ -62,6 +62,7 @@ export interface SELAgentCard {
   downloads?: Downloads;
   stars?: number;
   github_url?: string;
+  video_url?: string;
 }
 
 // ===== SKILL CARD TYPES =====

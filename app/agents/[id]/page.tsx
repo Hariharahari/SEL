@@ -1,5 +1,5 @@
 import { SELAgentCard } from '@/types';
-import DownloadModal from '@/components/DownloadModal';
+import DownloadButton from '@/components/DownloadButton';
 import FeedbackForm from '@/components/FeedbackForm';
 import Link from 'next/link';
 import { ArrowLeft, Code2, Zap, Shield, BookOpen, Users, CheckCircle, Grid3X3, Download } from 'lucide-react';
@@ -133,7 +133,7 @@ export default async function AgentDetailPage({
               )}
             </div>
             <div className="flex gap-3">
-              <DownloadModal agent={agent} />
+              <DownloadButton agent={agent} />
             </div>
           </div>
         </div>
@@ -149,7 +149,7 @@ export default async function AgentDetailPage({
               <p className="text-2xl font-bold text-gray-900">{agent.version}</p>
             </div>
             <div className="bg-white rounded-lg p-6 border border-gray-200">
-              <p className="text-sm text-gray-600 font-medium mb-1">Organization</p>
+              <p className="text-sm text-gray-600 font-medium mb-1">BG</p>
               <p className="text-lg font-bold text-gray-900 truncate">{agent.origin.org}</p>
             </div>
             {agent.rating && (
@@ -175,18 +175,18 @@ export default async function AgentDetailPage({
               </div>
               <div className="space-y-4">
                 <div>
-                  <p className="text-sm text-gray-600 font-medium">Organization</p>
+                  <p className="text-sm text-gray-600 font-medium">BG</p>
                   <p className="text-lg text-gray-900 font-semibold">{agent.origin.org}</p>
                 </div>
                 {agent.origin.sub_org && (
                   <div>
-                    <p className="text-sm text-gray-600 font-medium">Division</p>
+                    <p className="text-sm text-gray-600 font-medium">ISU</p>
                     <p className="text-lg text-gray-900">{agent.origin.sub_org}</p>
                   </div>
                 )}
                 {agent.origin.creator && (
                   <div>
-                    <p className="text-sm text-gray-600 font-medium">Creator</p>
+                    <p className="text-sm text-gray-600 font-medium">Account</p>
                     <p className="text-lg text-gray-900">{agent.origin.creator}</p>
                   </div>
                 )}
@@ -196,7 +196,7 @@ export default async function AgentDetailPage({
             <div className="bg-white rounded-lg p-8 border border-gray-200">
               <div className="flex items-center gap-3 mb-6">
                 <Users className="w-5 h-5 text-purple-600" />
-                <h2 className="text-xl font-semibold text-gray-900">Maintainers</h2>
+                <h2 className="text-xl font-semibold text-gray-900">Creater/Maintainers</h2>
               </div>
               <div className="space-y-4">
                 {agent.maintainers.map((maintainer, idx) => (
@@ -396,7 +396,7 @@ export default async function AgentDetailPage({
             Download the YAML configuration and integrate this agent into your workflow today.
           </p>
           <div className="flex gap-4 justify-center">
-            <DownloadModal agent={agent} />
+            <DownloadButton agent={agent} />
             <Link
               href="/agents"
               className="
