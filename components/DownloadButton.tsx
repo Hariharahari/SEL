@@ -16,8 +16,24 @@ export default function DownloadButton({ agent }: DownloadButtonProps) {
   const handleDownload = async (formData: UserFormData) => {
     try {
       setIsLoading(true);
-      const response = await fetch(`/api/agents/${agent['agent id']}/download-github`);
+
+      // 1. Retrieve the JWT from localStorage
+      const token = localStorage.getItem('auth_token');
+
+      // 2. Pass the token in the Authorization header
+      const response = await fetch(`/api/agents/${agent['agent id']}/download-github`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
       
+      if (response.status === 401) {
+        alert('Your session has expired. Please login again.');
+        return;
+      }
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Download failed');
@@ -36,7 +52,7 @@ export default function DownloadButton({ agent }: DownloadButtonProps) {
       setIsFormOpen(false);
     } catch (error) {
       console.error('Download failed:', error);
-      alert(`Failed to download agent: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      alert(`Failed to download: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsLoading(false);
     }
@@ -47,14 +63,7 @@ export default function DownloadButton({ agent }: DownloadButtonProps) {
       <button
         onClick={() => setIsFormOpen(true)}
         disabled={isLoading}
-        className="
-          inline-flex items-center gap-2 px-6 py-2
-          bg-blue-600 hover:bg-blue-700
-          text-white font-medium rounded-lg
-          transition-colors duration-200
-          disabled:bg-gray-400 disabled:cursor-not-allowed
-        "
-        title="Download agent folder from GitHub as ZIP"
+        className="inline-flex items-center gap-2 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors disabled:bg-gray-400"
       >
         <Download className="w-4 h-4" />
         {isLoading ? 'Downloading...' : 'Download Agent'}

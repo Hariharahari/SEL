@@ -6,6 +6,38 @@ import JSZip from 'jszip';
 const GITHUB_API_BASE = 'https://api.github.com';
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 
+/**
+ * Verify Authorization header
+ * Requires: Authorization: Bearer {access_token}
+ * @returns true if valid, false otherwise
+ */
+function verifyAuthorizationHeader(request: NextRequest): boolean {
+  const authHeader = request.headers.get('Authorization');
+  
+  if (!authHeader) {
+    return false;
+  }
+
+  if (!authHeader.startsWith('Bearer ')) {
+    return false;
+  }
+
+  const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+  
+  // Basic token validation
+  if (!token || token.length < 10) {
+    return false;
+  }
+
+  // Check for JWT-like format (should have 3 parts separated by dots)
+  const parts = token.split('.');
+  if (parts.length !== 3) {
+    return false;
+  }
+
+  return true;
+}
+
 // Fetch file content from GitHub
 async function fetchGithubFile(
   owner: string,
@@ -84,6 +116,17 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // **SECURITY: Verify Authorization header first**
+    if (!verifyAuthorizationHeader(request)) {
+      return NextResponse.json(
+        {
+          detail: 'Missing or invalid Authorization header',
+          error: 'AuthenticationError'
+        },
+        { status: 401 }
+      );
+    }
+
     const { id: agentId } = await params;
 
     // Get agent from Redis
