@@ -1,28 +1,20 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import UploadForm from '@/components/UploadForm';
-import { Upload, CheckCircle, Shield, Zap, BookOpen, Code2 } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import UploadForm, { type EditableSubmissionRecord } from '@/components/UploadForm';
+import { ArrowUpCircle, CheckCircle, Clock3, PencilLine, Shield, Upload, XCircle, Zap } from 'lucide-react';
 import { tokenStorage } from '@/lib/auth';
 
-interface SubmissionRecord {
-  agent: {
-    'agent id': string;
-    name: string;
-    description: string;
-    version: string;
-  };
-  status: 'pending' | 'approved' | 'rejected';
-  submittedAt: string;
-  rejectionReason?: string;
-}
-
 export default function UploadPage() {
-  const [submissions, setSubmissions] = useState<SubmissionRecord[]>([]);
+  const [submissions, setSubmissions] = useState<EditableSubmissionRecord[]>([]);
+  const [editingSubmission, setEditingSubmission] = useState<EditableSubmissionRecord | null>(null);
 
-  useEffect(() => {
+  const loadSubmissions = useCallback(() => {
     const token = tokenStorage.getAccessToken();
-    if (!token) return;
+    if (!token) {
+      setSubmissions([]);
+      return;
+    }
 
     fetch('/api/user/submissions', {
       headers: {
@@ -35,12 +27,34 @@ export default function UploadPage() {
       .catch((error) => console.error('Failed to load user submissions:', error));
   }, []);
 
+  useEffect(() => {
+    loadSubmissions();
+  }, [loadSubmissions]);
+
+  const statusMeta = {
+    approved: {
+      icon: CheckCircle,
+      label: 'Approved',
+      className: 'bg-success/10 text-success border-success/20',
+    },
+    pending: {
+      icon: Clock3,
+      label: 'Pending review',
+      className: 'bg-warning/10 text-warning border-warning/20',
+    },
+    rejected: {
+      icon: XCircle,
+      label: 'Needs changes',
+      className: 'bg-error/10 text-error border-error/20',
+    },
+  } as const;
+
   return (
     <div className="sel-page">
       <section className="border-b border-border bg-bg-secondary px-4 py-10">
-        <div className="sel-shell max-w-4xl">
+        <div className="sel-shell max-w-5xl">
           <div className="flex items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-secondary text-white shadow-card">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-secondary text-white shadow-[0_0_30px_rgba(0,120,212,0.28)]">
               <Upload className="h-7 w-7" />
             </div>
             <div>
@@ -48,7 +62,7 @@ export default function UploadPage() {
                 Upload Skill
               </h1>
               <p className="mt-1 max-w-2xl text-sm text-text-secondary">
-                Submit a SEL-compatible skill card into the review, indexing, and directory workflow.
+                Submit a skill, revise it after feedback, and resubmit the same record back into approval.
               </p>
             </div>
           </div>
@@ -56,210 +70,144 @@ export default function UploadPage() {
       </section>
 
       <section className="bg-bg-primary px-4 py-10">
-        <div className="sel-shell">
-          <h2 className="mb-8 text-2xl font-bold text-text-primary">Why Share Your Skill?</h2>
-
-          <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
-            <div className="sel-card p-8">
-              <div className="mb-4 flex items-center gap-4">
-                <div className="rounded-lg bg-warning/10 p-3">
-                  <Zap className="h-6 w-6 text-warning" />
-                </div>
-                <h3 className="text-xl font-semibold text-text-primary">Instant Impact</h3>
-              </div>
-              <p className="text-text-secondary">
-                Reach teams in the directory with a reusable skill package once it clears review.
-              </p>
-            </div>
-
-            <div className="sel-card p-8">
-              <div className="mb-4 flex items-center gap-4">
-                <div className="rounded-lg bg-info/10 p-3">
-                  <CheckCircle className="h-6 w-6 text-info" />
-                </div>
-                <h3 className="text-xl font-semibold text-text-primary">Workflow Ready</h3>
-              </div>
-              <p className="text-text-secondary">
-                Your upload flows through approval, NVIDIA analysis, vector indexing, and analytics before it goes live.
-              </p>
-            </div>
-
-            <div className="sel-card p-8">
-              <div className="mb-4 flex items-center gap-4">
-                <div className="rounded-lg bg-success/10 p-3">
-                  <Shield className="h-6 w-6 text-success" />
-                </div>
-                <h3 className="text-xl font-semibold text-text-primary">Review Confidence</h3>
-              </div>
-              <p className="text-text-secondary">
-                Keep metadata, schema, and ownership details consistent so admins can review and publish confidently.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="bg-bg-primary px-4 py-10">
-        <div className="sel-shell max-w-4xl">
-          <div className="sel-card p-10">
-            <h2 className="mb-2 text-3xl font-bold text-text-primary">Upload Your Skill</h2>
-            <p className="mb-8 text-text-secondary">
-              Follow the current skill card schema so your submission fits the review, embedding, analytics, and directory pipeline.
-            </p>
-
-            <UploadForm />
-          </div>
-        </div>
-      </section>
-
-      {submissions.length > 0 && (
-        <section className="bg-bg-primary px-4 py-4">
-          <div className="sel-shell max-w-4xl">
-            <div className="sel-card p-8">
-              <h2 className="text-2xl font-bold text-text-primary">Your Skill Submissions</h2>
-              <div className="mt-6 space-y-4">
-                {submissions.map((record) => (
-                  <div key={`${record.agent['agent id']}-${record.submittedAt}`} className="rounded-xl border border-border bg-bg-secondary p-4">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <h3 className="text-base font-semibold text-text-primary">{record.agent.name}</h3>
-                        <p className="mt-1 text-sm text-text-secondary">{record.agent.description}</p>
-                      </div>
-                      <span
-                        className={`sel-badge ${
-                          record.status === 'approved'
-                            ? 'bg-success/10 text-success'
-                            : record.status === 'rejected'
-                              ? 'bg-error/10 text-error'
-                              : 'bg-warning/10 text-warning'
-                        }`}
-                      >
-                        {record.status}
-                      </span>
+        <div className="sel-shell grid gap-8 xl:grid-cols-[1.1fr_0.9fr]">
+          <div className="space-y-8">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+              {[
+                {
+                  icon: Zap,
+                  title: 'Iteration ready',
+                  body: 'Rejected or already-approved skills can be edited and pushed back through review without starting from zero.',
+                  accent: 'text-warning',
+                  glow: 'shadow-[0_0_26px_-18px_rgba(244,183,64,0.75)]',
+                },
+                {
+                  icon: CheckCircle,
+                  title: 'Workflow connected',
+                  body: 'Approval still drives categorization, NVIDIA analysis, FAISS indexing, and directory publishing.',
+                  accent: 'text-info',
+                  glow: 'shadow-[0_0_26px_-18px_rgba(78,161,255,0.75)]',
+                },
+                {
+                  icon: Shield,
+                  title: 'Review confidence',
+                  body: 'Ownership, attachments, and agent.md stay attached to the same skill identity for admins to verify.',
+                  accent: 'text-success',
+                  glow: 'shadow-[0_0_26px_-18px_rgba(54,195,124,0.75)]',
+                },
+              ].map(({ icon: Icon, title, body, accent, glow }) => (
+                <div key={title} className={`sel-card p-6 ${glow}`}>
+                  <div className="mb-4 flex items-center gap-3">
+                    <div className="rounded-xl border border-border bg-bg-primary p-3">
+                      <Icon className={`h-5 w-5 ${accent}`} />
                     </div>
-                    <p className="mt-3 text-xs text-text-muted">
-                      Submitted {new Date(record.submittedAt).toLocaleString()} - version {record.agent.version}
-                    </p>
-                    {record.status === 'rejected' && record.rejectionReason && (
-                      <div className="mt-3 rounded-lg border border-error/20 bg-error/10 p-3 text-sm text-error">
-                        Rejection reason: {record.rejectionReason}
-                      </div>
-                    )}
+                    <h2 className="text-lg font-semibold text-text-primary">{title}</h2>
                   </div>
-                ))}
+                  <p className="text-sm text-text-secondary">{body}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="sel-card p-8 shadow-[0_0_40px_-30px_rgba(0,120,212,0.7)]">
+              <div className="mb-6 flex items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-3xl font-bold text-text-primary">
+                    {editingSubmission ? 'Edit and Resubmit Skill' : 'Upload Your Skill'}
+                  </h2>
+                  <p className="mt-2 text-text-secondary">
+                    Follow the current schema so your submission fits the review, embedding, analytics, and directory pipeline.
+                  </p>
+                </div>
+                {editingSubmission && (
+                  <div className="rounded-full border border-primary/20 bg-primary/10 px-4 py-2 text-sm font-medium text-primary">
+                    {editingSubmission.agent['agent id']}
+                  </div>
+                )}
               </div>
+
+              <UploadForm
+                editingSubmission={editingSubmission}
+                onCancelEdit={() => setEditingSubmission(null)}
+                onSubmitted={() => {
+                  setEditingSubmission(null);
+                  loadSubmissions();
+                }}
+              />
             </div>
           </div>
-        </section>
-      )}
 
-      <section className="bg-bg-secondary px-4 py-10">
-        <div className="sel-shell max-w-4xl">
-          <h2 className="mb-12 text-3xl font-bold text-text-primary">Skill Requirements</h2>
-
-          <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
-            <div className="sel-card p-8">
-              <div className="mb-6 flex items-center gap-3">
-                <Code2 className="h-6 w-6 text-primary" />
-                <h3 className="text-xl font-semibold text-text-primary">Required Fields</h3>
+          <div className="space-y-6">
+            <div className="sel-card p-6">
+              <div className="mb-4 flex items-center gap-2">
+                <ArrowUpCircle className="h-5 w-5 text-primary" />
+                <h2 className="text-xl font-semibold text-text-primary">Your Skill Submissions</h2>
               </div>
-              <ul className="space-y-3">
-                {[
-                  'skill_card.starterkit_id - Unique skill identifier',
-                  'skill_card.name - Human-readable skill name',
-                  'skill_card.description - What the skill does',
-                  'skill_card.origin - Organization and creator info',
-                  'skill_card.maintainers - Contact information',
-                  'skill_card.version - Semantic version',
-                  'skill_card.status - Alpha, Beta, RC, Stable, Deprecated, Verified',
-                  'skill_card.technology - Array of technologies',
-                  'skill_card.specialization - Primary domain and domain_specific tags',
-                  'skill_card.tasks - Array of supported tasks',
-                  'skill_card.documentation - README, how-to, changelog',
-                  'skill_card.supported_harness - Supported runtimes or harnesses',
-                ].map((field) => (
-                  <li key={field} className="flex gap-3">
-                    <CheckCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-success" />
-                    <span className="text-text-secondary">{field}</span>
-                  </li>
-                ))}
-              </ul>
+              <p className="text-sm text-text-secondary">
+                Click edit on any submission to revise metadata, keep the uploaded files, and send it back to admin review.
+              </p>
             </div>
 
-            <div className="sel-card p-8">
-              <div className="mb-6 flex items-center gap-3">
-                <BookOpen className="h-6 w-6 text-secondary" />
-                <h3 className="text-xl font-semibold text-text-primary">Best Practices</h3>
-              </div>
-              <ul className="space-y-3">
-                {[
-                  'Keep the JSON wrapped under skill_card',
-                  'Use a stable starterkit_id you can version over time',
-                  'Describe the real review or automation task clearly',
-                  'List technologies accurately',
-                  'Provide real maintainer contacts',
-                  'Use domain_specific tags for better semantic search',
-                  'Include supported_harness values explicitly',
-                  'Update versions consistently',
-                  'Mark verified skills when appropriate',
-                  'Expect the schema to evolve over time',
-                ].map((practice) => (
-                  <li key={practice} className="flex gap-3">
-                    <CheckCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-secondary" />
-                    <span className="text-text-secondary">{practice}</span>
-                  </li>
-                ))}
-              </ul>
+            <div className="space-y-4">
+              {submissions.length === 0 ? (
+                <div className="sel-card p-6 text-sm text-text-secondary">
+                  No submissions yet. Your uploaded skills will appear here for edit and resubmit.
+                </div>
+              ) : (
+                submissions.map((record) => {
+                  const meta = statusMeta[record.status];
+                  const Icon = meta.icon;
+                  const isEditing = editingSubmission?.agent['agent id'] === record.agent['agent id'];
+
+                  return (
+                    <div
+                      key={`${record.agent['agent id']}-${record.submittedAt}`}
+                      className={`sel-card p-5 transition-all ${
+                        isEditing ? 'border-primary shadow-[0_0_30px_-22px_rgba(0,120,212,0.85)]' : ''
+                      }`}
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold ${meta.className}`}>
+                            <Icon className="h-3.5 w-3.5" />
+                            {meta.label}
+                          </div>
+                          <h3 className="mt-3 text-lg font-semibold text-text-primary">{record.agent.name}</h3>
+                          <p className="mt-2 text-sm text-text-secondary">{record.agent.description}</p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => setEditingSubmission(record)}
+                          className="sel-button-ghost border border-border px-3 py-2 text-sm"
+                        >
+                          <PencilLine className="h-4 w-4" />
+                          Edit
+                        </button>
+                      </div>
+
+                      <div className="mt-4 grid gap-3 text-sm text-text-secondary md:grid-cols-2">
+                        <div className="rounded-xl border border-border bg-bg-primary p-3">
+                          <span className="block text-xs uppercase tracking-[0.16em] text-text-muted">Skill ID</span>
+                          <span className="mt-1 block font-medium text-text-primary">{record.agent['agent id']}</span>
+                        </div>
+                        <div className="rounded-xl border border-border bg-bg-primary p-3">
+                          <span className="block text-xs uppercase tracking-[0.16em] text-text-muted">Last submitted</span>
+                          <span className="mt-1 block font-medium text-text-primary">
+                            {new Date(record.submittedAt).toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+
+                      {record.rejectionReason && (
+                        <div className="mt-4 rounded-xl border border-error/20 bg-error/10 p-3 text-sm text-error">
+                          Rejection reason: {record.rejectionReason}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
             </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="bg-bg-primary px-4 py-10">
-        <div className="sel-shell max-w-4xl">
-          <h2 className="mb-8 text-3xl font-bold text-text-primary">Skill Schema Reference</h2>
-
-          <div className="overflow-x-auto rounded-xl border border-border bg-[#111827] p-6 shadow-card">
-            <pre className="whitespace-pre-wrap break-words text-sm font-mono text-slate-200">
-{`{
-  "skill_card": {
-    "starterkit_id": "secure-code-guard",
-    "name": "Cyber Armor Guard",
-    "description": "Audits Next.js API routes for IDOR, CSRF, and SQL Injection.",
-    "origin": {
-      "org": "SEL-Core",
-      "sub_org": "Security",
-      "creator": "Sec-Lead"
-    },
-    "maintainers": [
-      {
-        "name": "Security Ops",
-        "contact": "sec@company.com"
-      }
-    ],
-    "version": "2.1.0",
-    "status": "verified",
-    "technology": ["Next.js", "Zod"],
-    "specialization": {
-      "primary": "security_review",
-      "domain_specific": ["Auth Patterns", "Data Sanitization"]
-    },
-    "tasks": [
-      {
-        "name": "Audit API Route",
-        "description": "Scans for missing validation.",
-        "async": false
-      }
-    ],
-    "documentation": {
-      "readme": "https://github.com/sel/sec/blob/main/docs.md",
-      "howto": "https://github.com/sel/sec/blob/main/docs.md#setup",
-      "changelog": "v2 release"
-    },
-    "supported_harness": ["Windsurf"]
-  }
-}`}
-            </pre>
           </div>
         </div>
       </section>

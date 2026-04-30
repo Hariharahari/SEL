@@ -2,7 +2,7 @@ import { SELAgentCard } from '@/types';
 import DownloadButton from '@/components/DownloadButton';
 import FeedbackForm from '@/components/FeedbackForm';
 import Link from 'next/link';
-import { ArrowLeft, BookOpen, Code2, Download, Grid3X3, Shield, Users, Zap } from 'lucide-react';
+import { ArrowLeft, BookOpen, Code2, Download, Grid3X3, PlayCircle, Shield, Users, Zap } from 'lucide-react';
 import { getAgentCategory } from '@/lib/agentCategory';
 
 interface AgentDetailPageProps {
@@ -72,7 +72,7 @@ export default async function AgentDetailPage({ params }: AgentDetailPageProps) 
               <h1 className="text-5xl font-bold leading-tight">{agent.name}</h1>
               <p className="mt-4 max-w-2xl text-xl leading-relaxed text-white/85">{agent.description}</p>
             </div>
-            <div className="flex gap-3">
+          <div className="flex gap-3">
               <DownloadButton agent={agent} />
             </div>
           </div>
@@ -189,6 +189,43 @@ export default async function AgentDetailPage({ params }: AgentDetailPageProps) 
             </div>
           </div>
 
+          <div className="rounded-lg border border-border bg-bg-primary p-8 shadow-[0_0_28px_-24px_rgba(0,120,212,0.6)]">
+            <div className="mb-6 flex items-center gap-3">
+              <PlayCircle className="h-5 w-5 text-primary" />
+              <h2 className="text-2xl font-semibold text-text-primary">Demo Video</h2>
+            </div>
+
+            {agent.video_url ? (
+              <div className="overflow-hidden rounded-2xl border border-border bg-bg-secondary">
+                <div className="aspect-video">
+                  <iframe
+                    width="100%"
+                    height="100%"
+                    src={`${agent.video_url}${
+                      agent.video_url.includes('youtube.com') || agent.video_url.includes('youtu.be')
+                        ? '?rel=0'
+                        : ''
+                    }`}
+                    title={`${agent.name} demo video`}
+                    frameBorder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    className="h-full w-full"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="flex aspect-video items-center justify-center rounded-2xl border border-dashed border-border bg-bg-secondary text-center">
+                <div>
+                  <p className="text-lg font-semibold text-text-primary">Demo slot reserved</p>
+                  <p className="mt-2 text-sm text-text-secondary">
+                    A demo video can be attached to this skill later.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
           {agent.tasks.length > 0 && (
             <div className="rounded-lg border border-border bg-bg-primary p-8">
               <div className="mb-6 flex items-center gap-3">
@@ -282,9 +319,9 @@ export default async function AgentDetailPage({ params }: AgentDetailPageProps) 
 
       <section className="bg-gradient-to-r from-primary to-secondary px-4 py-16 text-white">
         <div className="mx-auto max-w-5xl text-center">
-          <h2 className="mb-4 text-3xl font-bold">Ready to Use This Agent?</h2>
+          <h2 className="mb-4 text-3xl font-bold">Ready to Use This Skill?</h2>
           <p className="mx-auto mb-8 max-w-2xl text-lg text-white/90">
-            Download the package and integrate this agent into your workflow today.
+            Download the package and integrate this skill into your workflow today.
           </p>
           <div className="flex justify-center gap-4">
             <DownloadButton agent={agent} />

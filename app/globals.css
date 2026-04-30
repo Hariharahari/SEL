@@ -87,11 +87,12 @@ body {
 
   .sel-card {
     @apply rounded-xl border border-border bg-bg-secondary shadow-card transition-all duration-300 ease-out;
-    box-shadow: 0 10px 24px -18px var(--shadow-medium);
+    box-shadow: 0 10px 24px -18px var(--shadow-medium), 0 0 0 1px rgba(255, 255, 255, 0.02);
   }
 
   .sel-card-hover {
     @apply hover:border-primary hover:shadow-card-hover hover:-translate-y-0.5;
+    box-shadow: 0 12px 24px -18px var(--shadow-medium), 0 0 0 1px rgba(255, 255, 255, 0.02);
   }
 
   .sel-input {
@@ -104,6 +105,7 @@ body {
 
   .sel-button-primary {
     @apply rounded-lg font-medium transition-all duration-300 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-primary active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed relative overflow-hidden inline-flex items-center justify-center gap-2 bg-gradient-to-r from-primary to-primary/90 text-white hover:shadow-lg hover:shadow-primary/30;
+    box-shadow: 0 0 28px -16px rgba(25, 145, 230, 0.85);
   }
 
   .sel-button-outline {
@@ -125,5 +127,19 @@ body {
   .sel-panel {
     @apply rounded-2xl border border-border bg-bg-secondary;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03), 0 18px 36px -24px var(--shadow-medium);
+  }
+
+  .sel-glow-line {
+    position: relative;
+  }
+
+  .sel-glow-line::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    height: 1px;
+    background: linear-gradient(90deg, rgba(25, 145, 230, 0.85), rgba(139, 92, 246, 0.15), transparent);
+    opacity: 0.75;
   }
 }
