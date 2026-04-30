@@ -65,6 +65,11 @@ body {
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }
 
+input.hide-password-reveal::-ms-reveal,
+input.hide-password-reveal::-ms-clear {
+  display: none;
+}
+
 html,
 body {
   transition:

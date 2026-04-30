@@ -17,8 +17,8 @@ import type * as Prisma from "./prismaNamespace"
 
 const config: runtime.GetPrismaClientConfig = {
   "previewFeatures": [],
-  "clientVersion": "7.8.0",
-  "engineVersion": "3c6e192761c0362d496ed980de936e2f3cebcd3a",
+  "clientVersion": "7.7.0",
+  "engineVersion": "75cbdc1eb7150937890ad5465d861175c6624711",
   "activeProvider": "postgresql",
   "inlineSchema": "// This is your Prisma schema file,\n// learn more about it in the docs: https://pris.ly/d/prisma-schema\n\n// Get a free hosted Postgres database in seconds: `npx create-db`\n\ngenerator client {\n  provider = \"prisma-client\"\n  output   = \"../src/generated/prisma\"\n}\n\ndatasource db {\n  provider = \"postgresql\"\n}\n\nmodel User {\n  id                 String   @id\n  email              String   @unique\n  role               Role     @default(USER)\n  businessGroup      String?\n  IOU                String?\n  account            String?\n  mustChangePassword Boolean  @default(false)\n  createdAt          DateTime @default(now())\n  updatedAt          DateTime @updatedAt\n\n  downloads           SkillDownload[]\n  feedbacks           SkillFeedback[]\n  maintainedSkills    SkillMaintainer[] @relation(\"MaintainerUser\")\n  assignedMaintainers SkillMaintainer[] @relation(\"MaintainerAssignedBy\")\n\n  @@index([email])\n}\n\nmodel SkillMaintainer {\n  skillId      String\n  userId       String\n  assignedAt   DateTime @default(now())\n  assignedById String\n\n  user       User @relation(\"MaintainerUser\", fields: [userId], references: [id])\n  assignedBy User @relation(\"MaintainerAssignedBy\", fields: [assignedById], references: [id])\n\n  @@id([skillId, userId])\n  @@index([skillId])\n  @@index([userId])\n}\n\n// ── Skill Download ────────────────────────────────────\nmodel SkillDownload {\n  skillId      String\n  version      String\n  userId       String\n  purpose      String\n  downloadedAt DateTime @default(now())\n\n  user User @relation(fields: [userId], references: [id])\n\n  @@id([userId, skillId, version])\n  @@index([skillId, downloadedAt]) // trending queries\n  @@index([skillId, version]) // per version stats\n  @@index([userId])\n}\n\n// ── Skill Feedback ────────────────────────────────────\nmodel SkillFeedback {\n  skillId   String\n  version   String\n  userId    String\n  rating    Int // 1-5, enforced via check constraint below\n  feedback  String\n  createdAt DateTime @default(now())\n\n  user User @relation(fields: [userId], references: [id])\n\n  @@id([userId, skillId, version])\n  @@index([skillId, version])\n  @@index([rating])\n}\n\nenum Role {\n  USER\n  ADMIN\n}\n",
   "runtimeDataModel": {
@@ -180,7 +180,7 @@ export interface PrismaClient<
    * 
    * Read more in our [docs](https://www.prisma.io/docs/orm/prisma-client/queries/transactions).
    */
-  $transaction<P extends Prisma.PrismaPromise<any>[]>(arg: [...P], options?: { maxWait?: number, timeout?: number, isolationLevel?: Prisma.TransactionIsolationLevel }): runtime.Types.Utils.JsPromise<runtime.Types.Utils.UnwrapTuple<P>>
+  $transaction<P extends Prisma.PrismaPromise<any>[]>(arg: [...P], options?: { isolationLevel?: Prisma.TransactionIsolationLevel }): runtime.Types.Utils.JsPromise<runtime.Types.Utils.UnwrapTuple<P>>
 
   $transaction<R>(fn: (prisma: Omit<PrismaClient, runtime.ITXClientDenyList>) => runtime.Types.Utils.JsPromise<R>, options?: { maxWait?: number, timeout?: number, isolationLevel?: Prisma.TransactionIsolationLevel }): runtime.Types.Utils.JsPromise<R>
 

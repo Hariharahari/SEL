@@ -155,14 +155,14 @@ export default function LoginPage() {
                     }}
                     disabled={isLoading}
                     placeholder="Enter your password"
-                    className={`sel-input py-3 pl-10 pr-12 ${errors.password ? "border-error focus:border-error focus:ring-error/10" : ""}`}
+                    className={`sel-input hide-password-reveal py-3 pl-10 pr-12 ${errors.password ? "border-error focus:border-error focus:ring-error/10" : ""}`}
                     autoComplete="current-password"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword((value) => !value)}
                     disabled={isLoading}
-                    className="absolute right-2 top-1/2 rounded-lg p-2 text-text-muted transition-colors hover:bg-bg-tertiary hover:text-text-primary focus-visible:ring-2 focus-visible:ring-primary"
+                    className="absolute right-2 top-1/2 rounded-lg p-2 text-black transition-colors hover:bg-bg-tertiary hover:text-black focus-visible:ring-2 focus-visible:ring-primary"
                     aria-label={showPassword ? "Hide password" : "Show password"}
                     aria-pressed={showPassword}
                   >
@@ -178,12 +178,6 @@ export default function LoginPage() {
                 <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
               </button>
             </form>
-
-            <div className="mt-6 border-t border-border pt-5">
-              <p className="text-xs leading-6 text-text-muted">
-                JWT tokens come from the configured central auth service. Download profile details are reused once they have been synced to PostgreSQL.
-              </p>
-            </div>
           </div>
         </section>
       </div>

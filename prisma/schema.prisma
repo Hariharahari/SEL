@@ -1,10 +1,6 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
+// This is your Prisma schema file
 generator client {
-  provider = "prisma-client"
+  provider = "prisma-client-js"
   output   = "../src/generated/prisma"
 }
 
@@ -12,17 +8,16 @@ datasource db {
   provider = "postgresql"
 }
 
-
 model User {
-  id                 String   @id
-  email              String   @unique
-  role               Role     @default(USER)
-  businessGroup      String?
-  IOU                String?
-  account            String?
-  mustChangePassword Boolean  @default(false)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  id                  String           @id
+  email               String           @unique
+  role                Role             @default(USER)
+  businessGroup       String?
+  IOU                 String?
+  account             String?
+  mustChangePassword  Boolean          @default(false)
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
 
   downloads           SkillDownload[]
   feedbacks           SkillFeedback[]
@@ -31,13 +26,14 @@ model User {
 
   @@index([email])
 }
+
 model SkillMaintainer {
   skillId      String
   userId       String
   assignedAt   DateTime @default(now())
   assignedById String
 
-  user       User @relation("MaintainerUser",      fields: [userId],       references: [id])
+  user       User @relation("MaintainerUser",     fields: [userId],       references: [id])
   assignedBy User @relation("MaintainerAssignedBy", fields: [assignedById], references: [id])
 
   @@id([skillId, userId])
@@ -45,7 +41,6 @@ model SkillMaintainer {
   @@index([userId])
 }
 
-// ── Skill Download ────────────────────────────────────
 model SkillDownload {
   skillId      String
   version      String
@@ -56,17 +51,16 @@ model SkillDownload {
   user User @relation(fields: [userId], references: [id])
 
   @@id([userId, skillId, version])
-  @@index([skillId, downloadedAt])  // trending queries
-  @@index([skillId, version])       // per version stats
+  @@index([skillId, downloadedAt])
+  @@index([skillId, version])
   @@index([userId])
 }
 
-// ── Skill Feedback ────────────────────────────────────
 model SkillFeedback {
   skillId   String
   version   String
   userId    String
-  rating    Int           // 1-5, enforced via check constraint below
+  rating    Int
   feedback  String
   createdAt DateTime @default(now())
 

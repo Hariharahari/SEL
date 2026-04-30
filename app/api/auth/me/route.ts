@@ -1,15 +1,12 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/withAuth";
-import prisma from "@/lib/prisma";
-import { ensurePortalUser } from "@/lib/userSync";
+import { ensurePortalUserSafe, getPortalUserSafe } from "@/lib/userSync";
 
 export const GET = withAuth(async (_req, { user }) => {
-  await ensurePortalUser(user);
+  const syncedUser = await ensurePortalUserSafe(user);
 
-  // get db data for this user
-  const dbUser = await prisma.user.findUnique({
-    where: { id: user.user_id },
-  });
+  // get db data for this user when PostgreSQL is available
+  const dbUser = syncedUser || (await getPortalUserSafe(user.user_id));
 
   return NextResponse.json({
     // from central auth
@@ -21,5 +18,6 @@ export const GET = withAuth(async (_req, { user }) => {
     created_at:           user.created_at,
     // from your DB
     dbData: dbUser,
+    dbAvailable: dbUser !== null,
   });
 });
