@@ -1,6 +1,7 @@
 /**
- * SELAgentCard - The strict TypeScript interface for all agent data
- * This is the only source of truth for agent structure across the app
+ * SELAgentCard - Internal directory record for skills in the portal.
+ * The UI now presents these as skills even though some internal keys
+ * still use legacy agent naming for compatibility.
  */
 
 export interface Task {
@@ -39,10 +40,51 @@ export interface Specialization {
   "domain specific"?: string[];
 }
 
+export interface SkillCardPayload {
+  starterkit_id: string;
+  name: string;
+  description: string;
+  origin: Origin;
+  maintainers: Maintainer[];
+  version: string;
+  status: 'alpha' | 'beta' | 'rc' | 'stable' | 'deprecated' | 'verified';
+  technology: string[];
+  specialization: {
+    primary: string;
+    domain_specific?: string[];
+  };
+  tasks: Task[];
+  documentation: Documentation;
+  supported_harness: string[];
+  github_url?: string;
+  video_url?: string;
+}
+
+export interface SkillUploadEnvelope {
+  skill_card: SkillCardPayload;
+}
+
 export interface Documentation {
   readme: string;
   howto: string;
   changelog?: string;
+}
+
+export interface AgentAnalysis {
+  summary: string;
+  strengths: string[];
+  recommended_use_cases: string[];
+  adoption_signals: string[];
+  model?: string;
+  generated_at: string;
+}
+
+export interface SubmissionAttachment {
+  name: string;
+  relativePath: string;
+  absolutePath?: string;
+  mimeType: string;
+  size: number;
 }
 
 export interface SELAgentCard {
@@ -52,7 +94,7 @@ export interface SELAgentCard {
   origin: Origin;
   maintainers: Maintainer[];
   version: string;
-  status: 'alpha' | 'beta' | 'rc' | 'stable' | 'deprecated';
+  status: 'alpha' | 'beta' | 'rc' | 'stable' | 'deprecated' | 'verified';
   technology: string[];
   specialization: Specialization;
   tasks: Task[];
@@ -63,6 +105,10 @@ export interface SELAgentCard {
   stars?: number;
   github_url?: string;
   video_url?: string;
+  analysis?: AgentAnalysis;
+  categoryOverride?: string;
+  subcategoryOverride?: string;
+  sourceFiles?: SubmissionAttachment[];
 }
 
 // ===== SKILL CARD TYPES =====

@@ -1,102 +1,144 @@
-import { NextResponse } from 'next/server';
-import { LoginRequest, LoginResponse } from '@/types/auth';
+import { NextRequest, NextResponse } from "next/server";
+import axios from "axios";
+import prisma from "@/lib/prisma";
+import { z } from "zod";
+import {
+  ACCESS_COOKIE_NAME,
+  REFRESH_COOKIE_NAME,
+  getAuthErrorMessage,
+  getCentralAuthUrl,
+  normalizeRole,
+  toAppRole,
+} from "@/lib/centralAuth";
 
-/**
- * Mock Login Route - POST /api/auth/login
- * 
- * Follows OpenAPI contract:
- * - Accepts: user_id and password
- * - Returns: LoginResponse with access_token, refresh_token, expires_in, user_id, role, must_change_password
- * 
- * MOCK: All valid user_id/password combinations are accepted for testing
- */
-export async function POST(request: Request) {
+const LoginSchema = z.object({
+  user_id:  z.string().min(1),
+  password: z.string().min(1),
+});
+
+export async function POST(req: NextRequest) {
   try {
-    const body: LoginRequest = await request.json();
-
-    // Validate required fields
-    if (!body.user_id || !body.password) {
+    const authUrl = getCentralAuthUrl();
+    if (!authUrl) {
       return NextResponse.json(
-        { 
-          detail: 'Missing required fields: user_id and password',
-          error: 'ValidationError'
-        },
-        { status: 422 }
+        { success: false, synced: false, user: null, error: "Central auth URL is not configured" },
+        { status: 500 }
       );
     }
 
-    // MOCK: Accept any non-empty credentials for testing
-    // In production, this would verify against a user database with hashing
-    const user_id = body.user_id.trim();
-    const password = body.password;
+    // 1. validate body
+    const body   = await req.json();
+    const parsed = LoginSchema.parse(body);
 
-    if (user_id.length < 3) {
+    // 2. call central auth app
+    let authData;
+    try {
+      const { data } = await axios.post(
+        `${authUrl}/api/auth/login`,
+        parsed
+      );
+      authData = data;
+    } catch (err: any) {
       return NextResponse.json(
-        { 
-          detail: 'user_id must be at least 3 characters',
-          error: 'ValidationError'
+        {
+          success: false,
+          synced:  false,
+          user:    null,
+          error:   getAuthErrorMessage(err, "Central login failed"),
         },
-        { status: 422 }
+        { status: err.response?.status ?? 502 }
       );
     }
 
-    if (password.length < 8) {
+    if (!authData?.access_token || !authData?.refresh_token || !authData?.user_id) {
       return NextResponse.json(
-        { 
-          detail: 'Invalid credentials',
-          error: 'AuthenticationError'
-        },
-        { status: 401 }
+        { success: false, synced: false, user: null, error: "Central auth did not return JWT credentials" },
+        { status: 502 }
       );
     }
 
-    // MOCK: Generate mock tokens
-    // In production, these would be properly signed JWTs
-    const now = Math.floor(Date.now() / 1000);
-    const expiresIn = 3600; // 1 hour
+    // 3. fetch email from /me using the new access token
+    let email = authData.user_id; // fallback
+    let centralUser: any = null;
+    try {
+      const { data: meData } = await axios.get(
+        `${authUrl}/api/auth/me`,
+        { headers: { Authorization: `Bearer ${authData.access_token}` } }
+      );
+      centralUser = meData;
+      email = meData.email;
+    } catch {
+      // keep fallback
+    }
 
-    // Generate proper JWT-like mock token (header.payload.signature)
-    const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64');
-    const accessPayload = Buffer.from(
-      JSON.stringify({
-        sub: user_id,
-        user_id: user_id,
-        role: 'user',
-        iat: now,
-        exp: now + expiresIn
-      })
-    ).toString('base64');
-    const mockAccessToken = `${header}.${accessPayload}.mock_sig_${user_id}`;
+    // 4. sync user into DB
+    let synced = false;
+    let dbUser = null;
 
-    const refreshPayload = Buffer.from(
-      JSON.stringify({
-        sub: user_id,
-        type: 'refresh',
-        iat: now,
-        exp: now + 604800
-      })
-    ).toString('base64');
-    const mockRefreshToken = `${header}.${refreshPayload}.mock_sig_${user_id}`;
+    try {
+      dbUser = await prisma.user.upsert({
+        where:  { id: authData.user_id },
+        update: {
+          email,
+          role: toAppRole(authData.role),
+        },
+        create: {
+          id:    authData.user_id,
+          email,
+          role:  toAppRole(authData.role),
+        },
+      });
 
-    const response: LoginResponse = {
-      access_token: mockAccessToken,
-      refresh_token: mockRefreshToken,
-      token_type: 'bearer',
-      expires_in: expiresIn,
-      user_id: user_id,
-      role: 'user', // MOCK: Always user role for mock
-      must_change_password: false,
-      password_expired: false
+      // synced = true only if profile is complete
+      synced = !!(dbUser.businessGroup && dbUser.IOU && dbUser.account);
+    } catch (err) {
+      console.error("DB sync error:", err);
+      synced = false;
+    }
+
+    // 5. build response with app-specific cookies
+    const cookieOptions = {
+      httpOnly: true,
+      secure:   process.env.NODE_ENV === "production",
+      path:     "/",
     };
 
-    return NextResponse.json(response, { status: 200 });
-  } catch (error) {
-    console.error('Login error:', error);
-    return NextResponse.json(
-      { 
-        detail: 'Invalid request',
-        error: 'BadRequest'
+    const response = NextResponse.json({
+      success:              true,
+      synced,
+      access_token:         authData.access_token,
+      refresh_token:        authData.refresh_token,
+      token_type:           authData.token_type || "bearer",
+      expires_in:           authData.expires_in,
+      must_change_password: authData.must_change_password,
+      password_expired:     authData.password_expired,
+      user_id:              authData.user_id,
+      email,
+      name:                 centralUser?.name,
+      role:                 normalizeRole(dbUser?.role || authData.role),
+      user: {
+        user_id: authData.user_id,
+        email,
+        role:    normalizeRole(dbUser?.role || authData.role),
+        dbData:  dbUser,
       },
+    });
+
+    response.cookies.set(ACCESS_COOKIE_NAME, authData.access_token, {
+      ...cookieOptions,
+      maxAge: authData.expires_in ?? 60 * 60,
+    });
+
+    response.cookies.set(REFRESH_COOKIE_NAME, authData.refresh_token, {
+      ...cookieOptions,
+      maxAge: 60 * 60 * 24 * 7,
+    });
+
+    return response;
+
+  } catch (error: any) {
+    return NextResponse.json(
+      { success: false, synced: false, error: error.message },
       { status: 400 }
     );
   }

@@ -1,154 +1,212 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import UploadForm from '@/components/UploadForm';
 import { Upload, CheckCircle, Shield, Zap, BookOpen, Code2 } from 'lucide-react';
+import { tokenStorage } from '@/lib/auth';
+
+interface SubmissionRecord {
+  agent: {
+    'agent id': string;
+    name: string;
+    description: string;
+    version: string;
+  };
+  status: 'pending' | 'approved' | 'rejected';
+  submittedAt: string;
+  rejectionReason?: string;
+}
 
 export default function UploadPage() {
+  const [submissions, setSubmissions] = useState<SubmissionRecord[]>([]);
+
+  useEffect(() => {
+    const token = tokenStorage.getAccessToken();
+    if (!token) return;
+
+    fetch('/api/user/submissions', {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      credentials: 'include',
+    })
+      .then((response) => (response.ok ? response.json() : { data: [] }))
+      .then((payload) => setSubmissions(payload.data || []))
+      .catch((error) => console.error('Failed to load user submissions:', error));
+  }, []);
+
   return (
-    <div className="min-h-screen bg-white">
-      {/* Hero Section */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-purple-900 via-blue-900 to-gray-900 text-white py-24 px-4">
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.3),rgba(255,255,255,0))]"></div>
-        </div>
-        
-        <div className="max-w-4xl mx-auto relative z-10">
-          <div className="text-center">
-            <div className="flex justify-center mb-6">
-              <div className="p-3 bg-white/10 rounded-lg backdrop-blur">
-                <Upload className="w-12 h-12 text-purple-300" />
-              </div>
+    <div className="sel-page">
+      <section className="border-b border-border bg-bg-secondary px-4 py-10">
+        <div className="sel-shell max-w-4xl">
+          <div className="flex items-center gap-4">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-secondary text-white shadow-card">
+              <Upload className="h-7 w-7" />
             </div>
-            <h1 className="text-5xl md:text-6xl font-bold mb-6 leading-tight">
-              Share Your
-              <span className="bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent"> AI Agent</span>
-            </h1>
-            <p className="text-xl md:text-2xl text-gray-200 mb-8 leading-relaxed max-w-2xl mx-auto">
-              Contribute to the ecosystem by uploading your custom AI agent. Empower developers worldwide with your innovative solutions.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Benefits Section */}
-      <section className="bg-gray-50 py-16 px-4">
-        <div className="max-w-7xl mx-auto">
-          <h2 className="text-3xl font-bold text-gray-900 text-center mb-12">
-            Why Share Your Agent?
-          </h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {/* Benefit 1 */}
-            <div className="bg-white rounded-lg p-8 border border-gray-200 hover:border-purple-300 transition-all duration-200">
-              <div className="flex items-center gap-4 mb-4">
-                <div className="p-3 bg-purple-100 rounded-lg">
-                  <Zap className="w-6 h-6 text-purple-600" />
-                </div>
-                <h3 className="text-xl font-semibold text-gray-900">Instant Impact</h3>
-              </div>
-              <p className="text-gray-600">Reach thousands of developers who need your solution right away.</p>
-            </div>
-
-            {/* Benefit 2 */}
-            <div className="bg-white rounded-lg p-8 border border-gray-200 hover:border-purple-300 transition-all duration-200">
-              <div className="flex items-center gap-4 mb-4">
-                <div className="p-3 bg-blue-100 rounded-lg">
-                  <CheckCircle className="w-6 h-6 text-blue-600" />
-                </div>
-                <h3 className="text-xl font-semibold text-gray-900">Enterprise Ready</h3>
-              </div>
-              <p className="text-gray-600">Your agent gets enterprise validation and rating on our platform.</p>
-            </div>
-
-            {/* Benefit 3 */}
-            <div className="bg-white rounded-lg p-8 border border-gray-200 hover:border-purple-300 transition-all duration-200">
-              <div className="flex items-center gap-4 mb-4">
-                <div className="p-3 bg-green-100 rounded-lg">
-                  <Shield className="w-6 h-6 text-green-600" />
-                </div>
-                <h3 className="text-xl font-semibold text-gray-900">Community Trust</h3>
-              </div>
-              <p className="text-gray-600">Build reputation and establish yourself as thought leader.</p>
+            <div>
+              <h1 className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-3xl font-bold text-transparent">
+                Upload Skill
+              </h1>
+              <p className="mt-1 max-w-2xl text-sm text-text-secondary">
+                Submit a SEL-compatible skill card into the review, indexing, and directory workflow.
+              </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Upload Form Section */}
-      <section className="bg-white py-16 px-4">
-        <div className="max-w-4xl mx-auto">
-          <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-2xl p-12 border border-gray-200">
-            <h2 className="text-3xl font-bold text-gray-900 mb-2">
-              Upload Your Agent
-            </h2>
-            <p className="text-gray-600 mb-8">
-              Follow the SEL schema specifications to ensure your agent is compatible with our ecosystem.
+      <section className="bg-bg-primary px-4 py-10">
+        <div className="sel-shell">
+          <h2 className="mb-8 text-2xl font-bold text-text-primary">Why Share Your Skill?</h2>
+
+          <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
+            <div className="sel-card p-8">
+              <div className="mb-4 flex items-center gap-4">
+                <div className="rounded-lg bg-warning/10 p-3">
+                  <Zap className="h-6 w-6 text-warning" />
+                </div>
+                <h3 className="text-xl font-semibold text-text-primary">Instant Impact</h3>
+              </div>
+              <p className="text-text-secondary">
+                Reach teams in the directory with a reusable skill package once it clears review.
+              </p>
+            </div>
+
+            <div className="sel-card p-8">
+              <div className="mb-4 flex items-center gap-4">
+                <div className="rounded-lg bg-info/10 p-3">
+                  <CheckCircle className="h-6 w-6 text-info" />
+                </div>
+                <h3 className="text-xl font-semibold text-text-primary">Workflow Ready</h3>
+              </div>
+              <p className="text-text-secondary">
+                Your upload flows through approval, NVIDIA analysis, vector indexing, and analytics before it goes live.
+              </p>
+            </div>
+
+            <div className="sel-card p-8">
+              <div className="mb-4 flex items-center gap-4">
+                <div className="rounded-lg bg-success/10 p-3">
+                  <Shield className="h-6 w-6 text-success" />
+                </div>
+                <h3 className="text-xl font-semibold text-text-primary">Review Confidence</h3>
+              </div>
+              <p className="text-text-secondary">
+                Keep metadata, schema, and ownership details consistent so admins can review and publish confidently.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-bg-primary px-4 py-10">
+        <div className="sel-shell max-w-4xl">
+          <div className="sel-card p-10">
+            <h2 className="mb-2 text-3xl font-bold text-text-primary">Upload Your Skill</h2>
+            <p className="mb-8 text-text-secondary">
+              Follow the current skill card schema so your submission fits the review, embedding, analytics, and directory pipeline.
             </p>
-            
+
             <UploadForm />
           </div>
         </div>
       </section>
 
-      {/* Requirements Section */}
-      <section className="bg-gray-50 py-16 px-4">
-        <div className="max-w-4xl mx-auto">
-          <h2 className="text-3xl font-bold text-gray-900 mb-12">
-            Agent Requirements
-          </h2>
+      {submissions.length > 0 && (
+        <section className="bg-bg-primary px-4 py-4">
+          <div className="sel-shell max-w-4xl">
+            <div className="sel-card p-8">
+              <h2 className="text-2xl font-bold text-text-primary">Your Skill Submissions</h2>
+              <div className="mt-6 space-y-4">
+                {submissions.map((record) => (
+                  <div key={`${record.agent['agent id']}-${record.submittedAt}`} className="rounded-xl border border-border bg-bg-secondary p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <h3 className="text-base font-semibold text-text-primary">{record.agent.name}</h3>
+                        <p className="mt-1 text-sm text-text-secondary">{record.agent.description}</p>
+                      </div>
+                      <span
+                        className={`sel-badge ${
+                          record.status === 'approved'
+                            ? 'bg-success/10 text-success'
+                            : record.status === 'rejected'
+                              ? 'bg-error/10 text-error'
+                              : 'bg-warning/10 text-warning'
+                        }`}
+                      >
+                        {record.status}
+                      </span>
+                    </div>
+                    <p className="mt-3 text-xs text-text-muted">
+                      Submitted {new Date(record.submittedAt).toLocaleString()} - version {record.agent.version}
+                    </p>
+                    {record.status === 'rejected' && record.rejectionReason && (
+                      <div className="mt-3 rounded-lg border border-error/20 bg-error/10 p-3 text-sm text-error">
+                        Rejection reason: {record.rejectionReason}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* Required Fields */}
-            <div className="bg-white rounded-lg p-8 border border-gray-200">
-              <div className="flex items-center gap-3 mb-6">
-                <Code2 className="w-6 h-6 text-blue-600" />
-                <h3 className="text-xl font-semibold text-gray-900">Required Fields</h3>
+      <section className="bg-bg-secondary px-4 py-10">
+        <div className="sel-shell max-w-4xl">
+          <h2 className="mb-12 text-3xl font-bold text-text-primary">Skill Requirements</h2>
+
+          <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
+            <div className="sel-card p-8">
+              <div className="mb-6 flex items-center gap-3">
+                <Code2 className="h-6 w-6 text-primary" />
+                <h3 className="text-xl font-semibold text-text-primary">Required Fields</h3>
               </div>
               <ul className="space-y-3">
                 {[
-                  'agent id - Unique identifier (e.g., agent.nlp.summarizer)',
-                  'name - Human-readable name',
-                  'description - What the agent does',
-                  'origin - Organization and creator info',
-                  'maintainers - Contact information',
-                  'version - Agent version (semver)',
-                  'status - Alpha, Beta, RC, Stable, Deprecated',
-                  'technology - Array of tech stack',
-                  'specialization - Primary domain & capabilities',
-                  'tasks - Array of supported tasks',
-                  'documentation - README, how-to, changelog'
-                ].map((field, idx) => (
-                  <li key={idx} className="flex gap-3">
-                    <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                    <span className="text-gray-700">{field}</span>
+                  'skill_card.starterkit_id - Unique skill identifier',
+                  'skill_card.name - Human-readable skill name',
+                  'skill_card.description - What the skill does',
+                  'skill_card.origin - Organization and creator info',
+                  'skill_card.maintainers - Contact information',
+                  'skill_card.version - Semantic version',
+                  'skill_card.status - Alpha, Beta, RC, Stable, Deprecated, Verified',
+                  'skill_card.technology - Array of technologies',
+                  'skill_card.specialization - Primary domain and domain_specific tags',
+                  'skill_card.tasks - Array of supported tasks',
+                  'skill_card.documentation - README, how-to, changelog',
+                  'skill_card.supported_harness - Supported runtimes or harnesses',
+                ].map((field) => (
+                  <li key={field} className="flex gap-3">
+                    <CheckCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-success" />
+                    <span className="text-text-secondary">{field}</span>
                   </li>
                 ))}
               </ul>
             </div>
 
-            {/* Best Practices */}
-            <div className="bg-white rounded-lg p-8 border border-gray-200">
-              <div className="flex items-center gap-3 mb-6">
-                <BookOpen className="w-6 h-6 text-purple-600" />
-                <h3 className="text-xl font-semibold text-gray-900">Best Practices</h3>
+            <div className="sel-card p-8">
+              <div className="mb-6 flex items-center gap-3">
+                <BookOpen className="h-6 w-6 text-secondary" />
+                <h3 className="text-xl font-semibold text-text-primary">Best Practices</h3>
               </div>
               <ul className="space-y-3">
                 {[
-                  'Write descriptive documentation for your agent',
-                  'Use clear, meaningful agent IDs with domain prefixes',
-                  'Specify all technologies used accurately',
-                  'Include comprehensive task descriptions',
-                  'Keep the agent ID lowercase with dots as separators',
-                  'Provide multiple supported harnesses when possible',
-                  'Include example usage in documentation',
-                  'Regularly update version numbers',
-                  'Mark deprecated agents appropriately',
-                  'Test agent metadata before uploading',
-                  'Provide valid contact information'
-                ].map((practice, idx) => (
-                  <li key={idx} className="flex gap-3">
-                    <CheckCircle className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" />
-                    <span className="text-gray-700">{practice}</span>
+                  'Keep the JSON wrapped under skill_card',
+                  'Use a stable starterkit_id you can version over time',
+                  'Describe the real review or automation task clearly',
+                  'List technologies accurately',
+                  'Provide real maintainer contacts',
+                  'Use domain_specific tags for better semantic search',
+                  'Include supported_harness values explicitly',
+                  'Update versions consistently',
+                  'Mark verified skills when appropriate',
+                  'Expect the schema to evolve over time',
+                ].map((practice) => (
+                  <li key={practice} className="flex gap-3">
+                    <CheckCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-secondary" />
+                    <span className="text-text-secondary">{practice}</span>
                   </li>
                 ))}
               </ul>
@@ -157,81 +215,52 @@ export default function UploadPage() {
         </div>
       </section>
 
-      {/* Schema Reference Section */}
-      <section className="bg-gray-900 text-white py-16 px-4">
-        <div className="max-w-4xl mx-auto">
-          <h2 className="text-3xl font-bold mb-8">
-            Agent Schema Reference
-          </h2>
-          
-          <div className="bg-gray-800 rounded-lg p-6 overflow-x-auto">
-            <pre className="text-sm font-mono text-gray-300 whitespace-pre-wrap break-words">
+      <section className="bg-bg-primary px-4 py-10">
+        <div className="sel-shell max-w-4xl">
+          <h2 className="mb-8 text-3xl font-bold text-text-primary">Skill Schema Reference</h2>
+
+          <div className="overflow-x-auto rounded-xl border border-border bg-[#111827] p-6 shadow-card">
+            <pre className="whitespace-pre-wrap break-words text-sm font-mono text-slate-200">
 {`{
-  "agent id": "agent.nlp.summarizer",
-  "name": "Text Summarizer Agent",
-  "description": "Intelligent text summarization using NLP",
-  "origin": {
-    "org": "TechCorp",
-    "sub_org": "AI Division",
-    "creator": "John Doe"
-  },
-  "maintainers": [
-    {
-      "name": "Jane Smith",
-      "contact": "jane@techcorp.com"
-    }
-  ],
-  "version": "1.0.0",
-  "status": "stable",
-  "technology": ["Python", "TensorFlow", "FastAPI"],
-  "specialization": {
-    "primary": "Natural Language Processing",
-    "domain specific": ["Text Analysis", "Summarization"]
-  },
-  "tasks": [
-    {
-      "name": "Summarize Text",
-      "description": "Generate a concise summary",
-      "async": true
-    }
-  ],
-  "documentation": {
-    "readme": "Complete documentation...",
-    "howto": "Usage instructions...",
-    "changelog": "Version history..."
-  },
-  "supported harness": ["Claude", "OpenAI", "LangChain"],
-  "rating": {
-    "Jast score": 4.5,
-    "grade": "A+"
-  },
-  "stars": 42
+  "skill_card": {
+    "starterkit_id": "secure-code-guard",
+    "name": "Cyber Armor Guard",
+    "description": "Audits Next.js API routes for IDOR, CSRF, and SQL Injection.",
+    "origin": {
+      "org": "SEL-Core",
+      "sub_org": "Security",
+      "creator": "Sec-Lead"
+    },
+    "maintainers": [
+      {
+        "name": "Security Ops",
+        "contact": "sec@company.com"
+      }
+    ],
+    "version": "2.1.0",
+    "status": "verified",
+    "technology": ["Next.js", "Zod"],
+    "specialization": {
+      "primary": "security_review",
+      "domain_specific": ["Auth Patterns", "Data Sanitization"]
+    },
+    "tasks": [
+      {
+        "name": "Audit API Route",
+        "description": "Scans for missing validation.",
+        "async": false
+      }
+    ],
+    "documentation": {
+      "readme": "https://github.com/sel/sec/blob/main/docs.md",
+      "howto": "https://github.com/sel/sec/blob/main/docs.md#setup",
+      "changelog": "v2 release"
+    },
+    "supported_harness": ["Windsurf"]
+  }
 }`}
             </pre>
           </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="bg-gradient-to-r from-purple-600 to-blue-600 text-white py-16 px-4">
-        <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-3xl font-bold mb-4">
-            Ready to Share Your Innovation?
-          </h2>
-          <p className="text-lg text-white/90 mb-8">
-            Your agent could be the solution thousands of developers are looking for.
-          </p>
-          <a
-            href="#upload"
-            className="
-              inline-flex items-center gap-2 px-8 py-4 rounded-lg
-              bg-white text-purple-600 font-bold text-lg
-              hover:bg-gray-100 transition-all duration-200
-            "
-          >
-            <Upload className="w-5 h-5" />
-            Start Uploading Now
-          </a>
         </div>
       </section>
     </div>

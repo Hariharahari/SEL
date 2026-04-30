@@ -1,10 +1,18 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { authApi, authValidation, parseApiError } from '@/lib/auth';
-import { LoginResponse } from '@/types/auth';
-import Link from 'next/link';
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  AlertCircle,
+  CheckCircle,
+  Eye,
+  EyeOff,
+  Lock,
+  LogIn,
+  User,
+} from "lucide-react";
+import { useAuth } from "@/contexts/auth";
+import { authApi, authValidation, parseApiError } from "@/lib/auth";
 
 interface FormErrors {
   userId?: string;
@@ -12,94 +20,63 @@ interface FormErrors {
   submit?: string;
 }
 
-interface FormData {
-  userId: string;
-  password: string;
-}
-
 export default function LoginPage() {
   const router = useRouter();
-  const [formData, setFormData] = useState<FormData>({ userId: '', password: '' });
+  const { login } = useAuth();
+  const [userId, setUserId] = useState("");
+  const [password, setPassword] = useState("");
   const [errors, setErrors] = useState<FormErrors>({});
   const [isLoading, setIsLoading] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
-  // Redirect if already logged in
   useEffect(() => {
-    const checkAuth = async () => {
-      const { success } = await authApi.getCurrentUser();
-      if (success) {
-        router.push('/agents');
-      }
-    };
-    checkAuth().catch(() => {
-      // Not authenticated, stay on login page
+    authApi.getCurrentUser().then((result) => {
+      if (result.success) router.push("/agents");
     });
   }, [router]);
 
-  /**
-   * Validate form inputs
-   */
-  const validateForm = (): boolean => {
-    const newErrors: FormErrors = {};
+  const validateForm = () => {
+    const nextErrors: FormErrors = {};
 
-    if (!formData.userId.trim()) {
-      newErrors.userId = 'User ID is required';
-    } else if (!authValidation.isValidLoginInput(formData.userId)) {
-      newErrors.userId = 'User ID must be at least 3 characters';
+    if (!userId.trim()) {
+      nextErrors.userId = "User ID is required";
+    } else if (!authValidation.isValidLoginInput(userId)) {
+      nextErrors.userId = "Enter a valid user ID";
     }
 
-    if (!formData.password) {
-      newErrors.password = 'Password is required';
-    } else if (formData.password.length < 8) {
-      newErrors.password = 'Password must be at least 8 characters';
+    if (!password) {
+      nextErrors.password = "Password is required";
     }
 
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
   };
 
-  /**
-   * Handle form submission
-   */
-  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setSuccessMessage('');
+  const handleLogin = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
     setErrors({});
+    setSuccessMessage("");
 
-    if (!validateForm()) {
-      return;
-    }
+    if (!validateForm()) return;
 
     setIsLoading(true);
-
     try {
-      const result = await authApi.login(formData.userId.trim(), formData.password);
+      const result = await login(userId.trim(), password);
 
       if (!result.success) {
         setErrors({ submit: result.error });
-        setIsLoading(false);
         return;
       }
 
-      const data: LoginResponse = result.data;
-
-      // Show success message briefly
-      setSuccessMessage(`Welcome, ${data.user_id}! Redirecting...`);
-
-      // Check for must_change_password
-      if (data.must_change_password) {
-        setErrors({ submit: 'Password change required on first login' });
-        router.push('/auth/change-password');
+      const currentUser = await authApi.getCurrentUser();
+      if (!currentUser.success) {
+        setErrors({ submit: currentUser.error });
         return;
       }
 
-      // Redirect based on role
-      const redirectUrl = data.role?.toUpperCase() === 'ADMIN' ? '/admin' : '/agents';
-      setTimeout(() => {
-        router.push(redirectUrl);
-      }, 500);
+      setSuccessMessage(`JWT received for ${currentUser.data.user_id}. Redirecting...`);
+      router.push(currentUser.data.role?.toUpperCase() === "ADMIN" ? "/admin/analytics" : "/agents");
     } catch (error) {
       setErrors({ submit: parseApiError(error) });
     } finally {
@@ -107,207 +84,108 @@ export default function LoginPage() {
     }
   };
 
-  /**
-   * Handle input changes
-   */
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-    // Clear field-level error when user starts typing
-    if (errors[name as keyof FormErrors]) {
-      setErrors(prev => ({ ...prev, [name]: undefined }));
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex flex-col items-center justify-center px-4 py-12">
-      {/* Container */}
-      <div className="w-full max-w-md">
-        {/* Header Section */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12 bg-blue-600 rounded-lg mb-4">
-            <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M11 3a1 1 0 10-2 0v1a1 1 0 102 0V3zM15.657 5.343a1 1 0 00-1.414-1.414l-.707.707a1 1 0 001.414 1.414l.707-.707zM18 10a1 1 0 01-1 1h-1a1 1 0 110-2h1a1 1 0 011 1zM15.657 14.657a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414l.707.707zM11 17a1 1 0 102 0v-1a1 1 0 10-2 0v1zM5.343 15.657a1 1 0 00-1.414 1.414l.707.707a1 1 0 001.414-1.414l-.707-.707zM2 10a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.343 4.343a1 1 0 000 1.414l.707.707a1 1 0 001.414-1.414L6.757 4.343zM10 5.5a4.5 4.5 0 100 9 4.5 4.5 0 000-9z" />
-            </svg>
-          </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Agent Directory</h1>
-          <p className="text-gray-600">Sign in to your account</p>
-        </div>
-
-        {/* Form Card */}
-        <div className="bg-white rounded-2xl shadow-lg p-8 space-y-6">
-          {/* Success Message */}
-          {successMessage && (
-            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-              <div className="flex items-center gap-2">
-                <svg className="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-                <p className="text-sm font-medium text-green-800">{successMessage}</p>
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(0,120,212,0.20),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(139,92,246,0.16),transparent_30%)] bg-bg-primary px-4 py-8 text-text-primary">
+      <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-6xl items-center justify-center">
+        <section className="flex items-center justify-center">
+          <div className="w-full max-w-lg rounded-3xl border border-border bg-bg-secondary/95 p-8 shadow-2xl backdrop-blur-sm">
+            <div className="mb-8">
+              <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-secondary text-white shadow-card">
+                <LogIn className="h-7 w-7" />
               </div>
+              <h2 className="text-3xl font-bold text-text-primary">Sign In</h2>
+              <p className="mt-2 text-sm text-text-secondary">
+                Use your central authentication credentials to continue.
+              </p>
             </div>
-          )}
 
-          {/* Error Message */}
-          {errors.submit && (
-            <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-              <div className="flex items-start gap-3">
-                <svg className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                </svg>
-                <p className="text-sm font-medium text-red-800">{errors.submit}</p>
+            {successMessage && (
+              <div className="mb-5 flex items-start gap-3 rounded-xl border border-success/20 bg-success/10 p-4 text-sm text-text-primary">
+                <CheckCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-success" />
+                <p>{successMessage}</p>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Login Form */}
-          <form onSubmit={handleLogin} className="space-y-5">
-            {/* User ID / Username Field */}
-            <div>
-              <label htmlFor="userId" className="block text-sm font-semibold text-gray-700 mb-2">
-                User ID / Username
-              </label>
-              <div className="relative">
-                <div className="absolute left-3 top-3 text-gray-400">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
+            {errors.submit && (
+              <div className="mb-5 flex items-start gap-3 rounded-xl border border-error/20 bg-error/10 p-4 text-sm text-text-primary">
+                <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-error" />
+                <p>{errors.submit}</p>
+              </div>
+            )}
+
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div className="space-y-1.5">
+                <label htmlFor="userId" className="sel-label">
+                  User ID
+                </label>
+                <div className="relative">
+                  <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
+                  <input
+                    id="userId"
+                    name="userId"
+                    type="text"
+                    value={userId}
+                    onChange={(event) => {
+                      setUserId(event.target.value);
+                      setErrors((prev) => ({ ...prev, userId: undefined }));
+                    }}
+                    disabled={isLoading}
+                    placeholder="Enter your user ID"
+                    className={`sel-input py-3 pl-10 pr-4 ${errors.userId ? "border-error focus:border-error focus:ring-error/10" : ""}`}
+                    autoComplete="username"
+                  />
                 </div>
-                <input
-                  id="userId"
-                  name="userId"
-                  type="text"
-                  value={formData.userId}
-                  onChange={handleInputChange}
-                  disabled={isLoading}
-                  placeholder="e.g., john_doe"
-                  className={`w-full pl-10 pr-4 py-3 rounded-lg border-2 transition-colors ${
-                    errors.userId
-                      ? 'border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-100'
-                      : 'border-gray-200 bg-gray-50 focus:border-blue-500 focus:ring-blue-100'
-                  } focus:outline-none focus:ring-2`}
-                />
+                {errors.userId && <p className="text-sm text-error">{errors.userId}</p>}
               </div>
-              {errors.userId && (
-                <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                  </svg>
-                  {errors.userId}
-                </p>
-              )}
-            </div>
 
-            {/* Password Field */}
-            <div>
-              <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-2">
-                Password
-              </label>
-              <div className="relative">
-                <div className="absolute left-3 top-3 text-gray-400">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                  </svg>
+              <div className="space-y-1.5">
+                <label htmlFor="password" className="sel-label">
+                  Password
+                </label>
+                <div className="relative">
+                  <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
+                  <input
+                    id="password"
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(event) => {
+                      setPassword(event.target.value);
+                      setErrors((prev) => ({ ...prev, password: undefined }));
+                    }}
+                    disabled={isLoading}
+                    placeholder="Enter your password"
+                    className={`sel-input py-3 pl-10 pr-12 ${errors.password ? "border-error focus:border-error focus:ring-error/10" : ""}`}
+                    autoComplete="current-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((value) => !value)}
+                    disabled={isLoading}
+                    className="absolute right-2 top-1/2 rounded-lg p-2 text-text-muted transition-colors hover:bg-bg-tertiary hover:text-text-primary focus-visible:ring-2 focus-visible:ring-primary"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    aria-pressed={showPassword}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
                 </div>
-                <input
-                  id="password"
-                  name="password"
-                  type={showPassword ? 'text' : 'password'}
-                  value={formData.password}
-                  onChange={handleInputChange}
-                  disabled={isLoading}
-                  placeholder="At least 8 characters"
-                  className={`w-full pl-10 pr-12 py-3 rounded-lg border-2 transition-colors ${
-                    errors.password
-                      ? 'border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-100'
-                      : 'border-gray-200 bg-gray-50 focus:border-blue-500 focus:ring-blue-100'
-                  } focus:outline-none focus:ring-2`}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-3 text-gray-400 hover:text-gray-600 transition-colors"
-                  disabled={isLoading}
-                >
-                  {showPassword ? (
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                      <path d="M3.707 2.293a1 1 0 00-1.414 1.414l14 14a1 1 0 001.414-1.414l-1.473-1.473A10.014 10.014 0 0019.542 10C18.268 5.943 14.478 3 10 3a9.958 9.958 0 00-4.512 1.074l-1.78-1.781zm4.261 4.26l1.514 1.515a2.003 2.003 0 012.45 2.45l1.514 1.514a4 4 0 00-5.478-5.478z" clipRule="evenodd" />
-                      <path d="M15.171 13.576l1.414 1.414a1 1 0 001.414-1.414l-1.414-1.414a1 1 0 00-1.414 1.414zM12.5 10a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
-                    </svg>
-                  ) : (
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                      <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                      <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
-                    </svg>
-                  )}
-                </button>
+                {errors.password && <p className="text-sm text-error">{errors.password}</p>}
               </div>
-              {errors.password && (
-                <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                  </svg>
-                  {errors.password}
-                </p>
-              )}
-            </div>
 
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={isLoading}
-              className={`w-full py-3 px-4 rounded-lg font-semibold transition-all duration-200 flex items-center justify-center gap-2 ${
-                isLoading
-                  ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
-                  : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl active:scale-95'
-              }`}
-            >
-              {isLoading ? (
-                <>
-                  <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  Signing In...
-                </>
-              ) : (
-                <>
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H7a3 3 0 01-3-3V7a3 3 0 013-3h6a3 3 0 013 3v1" />
-                  </svg>
-                  Sign In
-                </>
-              )}
-            </button>
-          </form>
+              <button type="submit" disabled={isLoading} className="sel-button-primary group mt-2 w-full px-6 py-3">
+                <span>{isLoading ? "Signing in..." : "Sign In"}</span>
+                <LogIn className="h-4 w-4" />
+                <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
+              </button>
+            </form>
 
-          {/* Divider */}
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-200" />
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white text-gray-500">Or continue as</span>
+            <div className="mt-6 border-t border-border pt-5">
+              <p className="text-xs leading-6 text-text-muted">
+                JWT tokens come from the configured central auth service. Download profile details are reused once they have been synced to PostgreSQL.
+              </p>
             </div>
           </div>
-
-          {/* Demo Credentials */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <p className="text-xs font-semibold text-blue-900 mb-2">Demo Credentials (for testing):</p>
-            <div className="space-y-1 text-xs text-blue-800 font-mono">
-              <p>User ID: <span className="font-semibold">testuser</span></p>
-              <p>Password: <span className="font-semibold">TestPass123</span></p>
-            </div>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <p className="text-center text-sm text-gray-600 mt-6">
-          Need help?{' '}
-          <a href="mailto:support@example.com" className="text-blue-600 hover:text-blue-700 font-medium transition-colors">
-            Contact Support
-          </a>
-        </p>
+        </section>
       </div>
     </div>
   );

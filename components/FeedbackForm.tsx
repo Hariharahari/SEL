@@ -78,14 +78,14 @@ export default function FeedbackForm({ agentId, agentName }: FeedbackFormProps) 
   };
 
   return (
-    <div className="mt-8 pt-8 border-t border-gray-200">
+    <div className="mt-8 pt-8 border-t border-border">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">Feedback</h2>
+        <h2 className="text-2xl font-bold text-text-primary">Feedback</h2>
         <button
           onClick={() => setIsOpen(!isOpen)}
           className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 ${
             isOpen
-              ? 'bg-gray-200 text-gray-900'
+              ? 'bg-bg-tertiary text-text-primary'
               : 'bg-blue-600 hover:bg-blue-700 text-white'
           }`}
         >
@@ -94,21 +94,21 @@ export default function FeedbackForm({ agentId, agentName }: FeedbackFormProps) 
       </div>
 
       {isOpen && (
-        <div className="bg-gray-50 rounded-lg p-6 border border-gray-200 mb-6">
+        <div className="bg-bg-secondary rounded-lg p-6 border border-border mb-6">
           {submitted ? (
             <div className="flex flex-col items-center justify-center py-8">
               <CheckCircle className="w-12 h-12 text-green-600 mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              <h3 className="text-lg font-semibold text-text-primary mb-2">
                 Thank You!
               </h3>
-              <p className="text-gray-600 text-center">
+              <p className="text-text-secondary text-center">
                 Your feedback helps us improve this agent. We appreciate your input!
               </p>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-2">
+                <label className="block text-sm font-medium text-text-primary mb-2">
                   What feature would you like to provide feedback on? *
                 </label>
                 <select
@@ -116,7 +116,7 @@ export default function FeedbackForm({ agentId, agentName }: FeedbackFormProps) 
                   onChange={(e) =>
                     setFormData({ ...formData, feature: e.target.value })
                   }
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg
+                  className="w-full px-4 py-2 border border-border rounded-lg bg-bg-primary text-text-primary
                     focus:ring-2 focus:ring-blue-600 focus:border-transparent
                     outline-none transition-all duration-200"
                   required
@@ -131,7 +131,7 @@ export default function FeedbackForm({ agentId, agentName }: FeedbackFormProps) 
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-2">
+                <label className="block text-sm font-medium text-text-primary mb-2">
                   How would you rate this feature? *
                 </label>
                 <div className="flex gap-2">
@@ -143,14 +143,14 @@ export default function FeedbackForm({ agentId, agentName }: FeedbackFormProps) 
                       className={`w-12 h-12 rounded-lg font-bold text-lg transition-all duration-200 ${
                         formData.rating === num
                           ? 'bg-blue-600 text-white scale-110'
-                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                          : 'bg-bg-tertiary text-text-secondary hover:bg-bg-primary'
                       }`}
                     >
                       {num}
                     </button>
                   ))}
                 </div>
-                <p className="text-xs text-gray-600 mt-2">
+                <p className="text-xs text-text-secondary mt-2">
                   {formData.rating <= 2
                     ? 'Needs improvement'
                     : formData.rating === 3
@@ -162,7 +162,7 @@ export default function FeedbackForm({ agentId, agentName }: FeedbackFormProps) 
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-2">
+                <label className="block text-sm font-medium text-text-primary mb-2">
                   Your feedback (max 500 characters) *
                 </label>
                 <textarea
@@ -174,18 +174,18 @@ export default function FeedbackForm({ agentId, agentName }: FeedbackFormProps) 
                     })
                   }
                   placeholder="Share your thoughts, suggestions, or issues..."
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg
+                  className="w-full px-4 py-2 border border-border rounded-lg bg-bg-primary text-text-primary
                     focus:ring-2 focus:ring-blue-600 focus:border-transparent
                     outline-none transition-all duration-200 resize-none h-24"
                   required
                 />
-                <p className="text-xs text-gray-600 mt-1">
+                <p className="text-xs text-text-secondary mt-1">
                   {formData.comment.length}/500
                 </p>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-2">
+                <label className="block text-sm font-medium text-text-primary mb-2">
                   Email (optional) - for follow-up
                 </label>
                 <input
@@ -195,7 +195,7 @@ export default function FeedbackForm({ agentId, agentName }: FeedbackFormProps) 
                     setFormData({ ...formData, email: e.target.value })
                   }
                   placeholder="your@email.com"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg
+                  className="w-full px-4 py-2 border border-border rounded-lg bg-bg-primary text-text-primary
                     focus:ring-2 focus:ring-blue-600 focus:border-transparent
                     outline-none transition-all duration-200"
                 />

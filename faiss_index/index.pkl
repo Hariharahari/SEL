@@ -1,0 +1,20 @@
+{
+  "secure-code-guard": {
+    "id": "secure-code-guard",
+    "kind": "agent",
+    "name": "Cyber Armor Guard",
+    "version": "2.1.0",
+    "status": "verified",
+    "index": 0,
+    "updatedAt": "2026-04-29T09:06:48.907Z"
+  },
+  "release-readiness-radar": {
+    "id": "release-readiness-radar",
+    "kind": "agent",
+    "name": "Release Readiness Radar",
+    "version": "1.4.0",
+    "status": "verified",
+    "index": 1,
+    "updatedAt": "2026-04-29T10:50:42.023Z"
+  }
+}

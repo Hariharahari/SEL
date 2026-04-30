@@ -4,12 +4,15 @@ import { SELAgentCard } from '@/types';
 import { Download } from 'lucide-react';
 import { useState } from 'react';
 import DownloadFormModal, { UserFormData } from './DownloadFormModal';
+import { tokenStorage } from '@/lib/auth';
+import { useRouter } from 'next/navigation';
 
 interface DownloadButtonProps {
   agent: SELAgentCard;
 }
 
 export default function DownloadButton({ agent }: DownloadButtonProps) {
+  const router = useRouter();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -17,11 +20,18 @@ export default function DownloadButton({ agent }: DownloadButtonProps) {
     try {
       setIsLoading(true);
 
-      // 1. Retrieve the JWT from localStorage
-      const token = localStorage.getItem('auth_token');
+      const token = tokenStorage.getAccessToken();
 
-      // 2. Pass the token in the Authorization header
-      const response = await fetch(`/api/agents/${agent['agent id']}/download-github`, {
+      if (!token) {
+        alert('Please sign in before downloading a skill.');
+        return;
+      }
+
+      const params = new URLSearchParams({
+        purpose: formData.purpose,
+      });
+
+      const response = await fetch(`/api/agents/${agent['agent id']}/download-github?${params.toString()}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -43,7 +53,7 @@ export default function DownloadButton({ agent }: DownloadButtonProps) {
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `${agent.name.toLowerCase().replace(/\s+/g, '-')}-agent.zip`;
+      link.download = `${agent.name.toLowerCase().replace(/\s+/g, '-')}-skill.zip`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -61,12 +71,20 @@ export default function DownloadButton({ agent }: DownloadButtonProps) {
   return (
     <>
       <button
-        onClick={() => setIsFormOpen(true)}
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          if (!tokenStorage.getAccessToken()) {
+            router.push('/login');
+            return;
+          }
+          setIsFormOpen(true);
+        }}
         disabled={isLoading}
         className="inline-flex items-center gap-2 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors disabled:bg-gray-400"
       >
         <Download className="w-4 h-4" />
-        {isLoading ? 'Downloading...' : 'Download Agent'}
+        {isLoading ? 'Downloading...' : 'Download'}
       </button>
 
       <DownloadFormModal

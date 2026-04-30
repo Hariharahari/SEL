@@ -3,7 +3,16 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { authApi } from '@/lib/auth';
-import { ChevronDown, Search, Filter, X, BarChart3, Users, Star, TrendingUp, MessageSquare } from 'lucide-react';
+import { 
+  Search, 
+  X, 
+  BarChart3, 
+  Users, 
+  Star, 
+  TrendingUp, 
+  CheckCircle, 
+  AlertCircle 
+} from 'lucide-react';
 
 interface Skill {
   skill_id: string;
@@ -81,7 +90,6 @@ export default function SkillAnalytics() {
   const fetchSkills = async () => {
     try {
       setIsLoading(true);
-
       const params = new URLSearchParams({
         page: page.toString(),
         limit: '20',
@@ -89,24 +97,12 @@ export default function SkillAnalytics() {
         ...(categoryFilter && { category: categoryFilter }),
       });
 
-      const response = await fetch(`/api/skills/browse?${params}`, {
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        console.error(`API error: ${response.status}`, error);
-        // If token expired, try to refresh
-        if (response.status === 401) {
-          // Token refresh will be handled automatically by auth middleware
-          return;
-        }
-        throw new Error('Failed to fetch skills');
+      const response = await fetch(`/api/skills/browse?${params}`, { credentials: 'include' });
+      if (response.ok) {
+        const data = await response.json();
+        setSkills(data.data?.skills || []);
+        setCategories(data.data?.filters_available?.categories || []);
       }
-      
-      const data = await response.json();
-      setSkills(data.data?.skills || []);
-      setCategories(data.data?.filters_available?.categories || []);
     } catch (err) {
       console.error('Error fetching skills:', err);
     } finally {
@@ -116,175 +112,166 @@ export default function SkillAnalytics() {
 
   const fetchSkillStats = async (skillId: string) => {
     try {
-      const response = await fetch(`/api/skills/${skillId}/stats`, {
-        credentials: 'include',
-      });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(`Failed to fetch skill stats: ${error.error}`);
+      const response = await fetch(`/api/skills/${skillId}/stats`, { credentials: 'include' });
+      if (response.ok) {
+        const data = await response.json();
+        setSelectedSkill(data.data);
       }
-      
-      const data = await response.json();
-      setSelectedSkill(data.data);
     } catch (err) {
       console.error('Error fetching skill stats:', err);
     }
   };
 
-  if (!user) return <div className="p-4">Loading...</div>;
+  // --- NEW: Status Management Function ---
+  const updateSkillStatus = async (skillId: string, newStatus: string) => {
+    if (!confirm(`Are you sure you want to set this skill to ${newStatus}?`)) return;
+
+    try {
+      const res = await fetch(`/api/skills/${skillId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      if (res.ok) {
+        await fetchSkillStats(skillId); // Refresh details
+        await fetchSkills(); // Refresh list
+      } else {
+        const error = await res.json();
+        alert(`Error: ${error.error}`);
+      }
+    } catch (err) {
+      console.error("Update failed", err);
+    }
+  };
+
+  if (!user) return <div className="p-4">Verifying Admin Access...</div>;
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-gray-50 text-gray-900">
       {/* Left Panel - Skills List */}
-      <div className="w-1/3 border-r border-gray-200 overflow-y-auto bg-white">
-        <div className="sticky top-0 bg-white border-b border-gray-200 p-4 space-y-3">
+      <div className="w-1/3 border-r border-gray-200 overflow-y-auto bg-white flex flex-col">
+        <div className="sticky top-0 bg-white border-b border-gray-200 p-4 space-y-3 z-10">
           <h2 className="font-bold text-lg">📊 Skills Analytics</h2>
-          
-          {/* Search */}
           <div className="relative">
             <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
             <input
               type="text"
               placeholder="Search skills..."
               value={searchTerm}
-              onChange={(e) => {
-                setSearchTerm(e.target.value);
-                setPage(1);
-              }}
+              onChange={(e) => setSearchTerm(e.target.value)}
               onBlur={fetchSkills}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
             />
           </div>
-
-          {/* Category Filter */}
-          {categories.length > 0 && (
-            <select
-              value={categoryFilter}
-              onChange={(e) => {
-                setCategoryFilter(e.target.value);
-                setPage(1);
-              }}
-              onBlur={fetchSkills}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-            >
-              <option value="">All Categories</option>
-              {categories.map(cat => (
-                <option key={cat} value={cat}>{cat}</option>
-              ))}
-            </select>
-          )}
         </div>
 
-        {/* Skills List */}
-        <div className="space-y-2 p-4">
+        <div className="flex-1 space-y-2 p-4">
           {isLoading ? (
-            <div className="text-center py-8 text-gray-500">Loading skills...</div>
-          ) : skills.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">No skills found</div>
-          ) : (
-            skills.map(skill => (
-              <div
-                key={skill.skill_id}
-                onClick={() => fetchSkillStats(skill.skill_id)}
-                className={`p-3 rounded-lg cursor-pointer transition-colors ${
-                  selectedSkill?.skill.skill_id === skill.skill_id
-                    ? 'bg-blue-50 border border-blue-300'
-                    : 'bg-gray-50 hover:bg-gray-100 border border-gray-200'
-                }`}
-              >
+            <div className="text-center py-8 text-gray-500">Loading...</div>
+          ) : skills.map(skill => (
+            <div
+              key={skill.skill_id}
+              onClick={() => fetchSkillStats(skill.skill_id)}
+              className={`p-3 rounded-lg cursor-pointer border transition-all ${
+                selectedSkill?.skill.skill_id === skill.skill_id
+                  ? 'bg-blue-50 border-blue-400 shadow-sm'
+                  : 'bg-gray-50 border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <div className="flex justify-between items-start">
                 <div className="font-semibold text-sm">{skill.name}</div>
-                <div className="flex gap-2 mt-2 text-xs text-gray-600">
-                  <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded">
-                    {skill.category}
-                  </span>
-                  <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded">
-                    {skill.difficulty_level}
-                  </span>
-                </div>
-                <div className="flex justify-between mt-2 text-xs text-gray-500">
-                  <span>📊 {skill.total_enrolled} enrolled</span>
-                  <span>⭐ {skill.rating}</span>
-                </div>
+                <span className={`text-[10px] px-2 py-0.5 rounded-full uppercase font-bold ${
+                  skill.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                }`}>
+                  {skill.status}
+                </span>
               </div>
-            ))
-          )}
+              <div className="flex gap-2 mt-2 text-[10px]">
+                <span className="bg-gray-200 px-2 py-0.5 rounded">{skill.category}</span>
+                <span className="bg-gray-200 px-2 py-0.5 rounded">{skill.difficulty_level}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Pagination */}
+        <div className="p-4 border-t bg-white flex justify-between items-center">
+          <button onClick={() => { setPage(p => Math.max(1, p - 1)); fetchSkills(); }} disabled={page === 1} className="text-xs px-3 py-1 border rounded disabled:opacity-50">Prev</button>
+          <span className="text-xs font-medium">Page {page}</span>
+          <button onClick={() => { setPage(p => p + 1); fetchSkills(); }} className="text-xs px-3 py-1 border rounded">Next</button>
         </div>
       </div>
 
       {/* Right Panel - Skill Details */}
       {selectedSkill ? (
-        <div className="w-2/3 overflow-y-auto bg-white p-6">
-          <div className="flex justify-between items-start mb-6">
+        <div className="w-2/3 overflow-y-auto bg-white p-8">
+          <div className="flex justify-between items-start mb-8">
             <div>
-              <h1 className="text-3xl font-bold">{selectedSkill.skill.name}</h1>
-              <p className="text-gray-600 mt-2">{selectedSkill.skill.category} • {selectedSkill.skill.difficulty_level}</p>
+              <h1 className="text-4xl font-extrabold tracking-tight">{selectedSkill.skill.name}</h1>
+              <div className="flex items-center gap-3 mt-3 text-gray-500">
+                <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs font-semibold">{selectedSkill.skill.category}</span>
+                <span>•</span>
+                <span className="capitalize">{selectedSkill.skill.difficulty_level} Level</span>
+              </div>
             </div>
-            <button
-              onClick={() => setSelectedSkill(null)}
-              className="p-2 hover:bg-gray-100 rounded-lg"
-            >
-              <X className="w-5 h-5" />
+            <button onClick={() => setSelectedSkill(null)} className="p-2 hover:bg-gray-100 rounded-full transition">
+              <X className="w-6 h-6 text-gray-400" />
             </button>
           </div>
 
-          {/* Stats Grid */}
-          <div className="grid grid-cols-4 gap-4 mb-8">
-            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-              <div className="flex items-center gap-2 text-blue-700 font-semibold">
-                <Users className="w-4 h-4" />
-                Total Downloads
+          {/* Core Metrics Grid */}
+          <div className="grid grid-cols-4 gap-6 mb-10">
+            <MetricCard title="Total Downloads" value={selectedSkill.engagement.total_downloads} subtext={`${selectedSkill.engagement.unique_downloaders} unique users`} icon={<Users className="w-4 h-4" />} color="blue" />
+            <MetricCard title="Average Rating" value={selectedSkill.engagement.average_rating.toFixed(2)} subtext={`${selectedSkill.engagement.total_reviews} reviews`} icon={<Star className="w-4 h-4" />} color="yellow" />
+            <MetricCard title="Engagement" value={selectedSkill.stats.engagement_score} subtext={`Ratio: ${selectedSkill.stats.completion_ratio}%`} icon={<TrendingUp className="w-4 h-4" />} color="purple" />
+            
+            {/* Status Card with Actions */}
+            <div className={`p-4 rounded-xl border flex flex-col justify-between ${
+              selectedSkill.skill.status === 'approved' ? 'bg-green-50 border-green-200' : 'bg-orange-50 border-orange-200'
+            }`}>
+              <div>
+                <div className="flex items-center gap-2 font-bold text-xs uppercase tracking-wider mb-2">
+                  <BarChart3 className="w-3 h-3" /> Status
+                </div>
+                <div className="text-xl font-black capitalize">{selectedSkill.skill.status}</div>
               </div>
-              <div className="text-3xl font-bold mt-2">{selectedSkill.engagement.total_downloads}</div>
-              <div className="text-sm text-gray-600 mt-1">{selectedSkill.engagement.unique_downloaders} unique users</div>
-            </div>
-
-            <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
-              <div className="flex items-center gap-2 text-yellow-700 font-semibold">
-                <Star className="w-4 h-4" />
-                Average Rating
+              
+              <div className="flex flex-col gap-2 mt-4">
+                {selectedSkill.skill.status !== 'approved' && (
+                  <button 
+                    onClick={() => updateSkillStatus(selectedSkill.skill.skill_id, 'approved')}
+                    className="w-full bg-green-600 hover:bg-green-700 text-white text-[10px] py-2 rounded-md font-bold transition flex items-center justify-center gap-1"
+                  >
+                    <CheckCircle className="w-3 h-3" /> APPROVE
+                  </button>
+                )}
+                {selectedSkill.skill.status !== 'rejected' && (
+                  <button 
+                    onClick={() => updateSkillStatus(selectedSkill.skill.skill_id, 'rejected')}
+                    className="w-full bg-white hover:bg-red-50 text-red-600 text-[10px] py-2 rounded-md font-bold border border-red-200 transition flex items-center justify-center gap-1"
+                  >
+                    <AlertCircle className="w-3 h-3" /> REJECT
+                  </button>
+                )}
               </div>
-              <div className="text-3xl font-bold mt-2">{selectedSkill.engagement.average_rating.toFixed(2)}</div>
-              <div className="text-sm text-gray-600 mt-1">{selectedSkill.engagement.total_reviews} reviews</div>
-            </div>
-
-            <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
-              <div className="flex items-center gap-2 text-purple-700 font-semibold">
-                <TrendingUp className="w-4 h-4" />
-                Engagement Score
-              </div>
-              <div className="text-3xl font-bold mt-2">{selectedSkill.stats.engagement_score}</div>
-              <div className="text-sm text-gray-600 mt-1">Completion: {selectedSkill.stats.completion_ratio}%</div>
-            </div>
-
-            <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-              <div className="flex items-center gap-2 text-green-700 font-semibold">
-                <BarChart3 className="w-4 h-4" />
-                Status
-              </div>
-              <div className="text-lg font-bold mt-2 capitalize">{selectedSkill.skill.status}</div>
-              <div className="text-sm text-gray-600 mt-1">{selectedSkill.approval.status}</div>
             </div>
           </div>
 
           {/* Rating Distribution */}
-          <div className="mb-8">
-            <h3 className="font-bold text-lg mb-4">Rating Distribution</h3>
-            <div className="space-y-2">
+          <div className="mb-10 p-6 bg-gray-50 rounded-2xl border border-gray-100">
+            <h3 className="font-bold text-lg mb-6">Rating Breakdown</h3>
+            <div className="space-y-4">
               {[5, 4, 3, 2, 1].map(rating => (
                 <div key={rating} className="flex items-center gap-4">
-                  <div className="w-12 text-sm font-medium">⭐ {rating}</div>
-                  <div className="flex-1 bg-gray-200 rounded-full h-6 overflow-hidden">
-                    <div
-                      className="bg-yellow-400 h-full"
-                      style={{
-                        width: `${selectedSkill.engagement.total_reviews > 0
-                          ? (selectedSkill.engagement.rating_distribution[rating] / selectedSkill.engagement.total_reviews) * 100
-                          : 0}%`,
-                      }}
+                  <div className="w-12 text-sm font-bold text-gray-500">⭐ {rating}</div>
+                  <div className="flex-1 bg-gray-200 rounded-full h-4 overflow-hidden">
+                    <div 
+                      className="bg-yellow-400 h-full transition-all duration-500" 
+                      style={{ width: `${selectedSkill.engagement.total_reviews > 0 ? (selectedSkill.engagement.rating_distribution[rating] / selectedSkill.engagement.total_reviews) * 100 : 0}%` }}
                     />
                   </div>
-                  <div className="w-12 text-right text-sm text-gray-600">
+                  <div className="w-12 text-right text-xs font-bold text-gray-400">
                     {selectedSkill.engagement.rating_distribution[rating] || 0}
                   </div>
                 </div>
@@ -292,53 +279,70 @@ export default function SkillAnalytics() {
             </div>
           </div>
 
-          {/* Recent Downloads */}
-          <div className="mb-8">
-            <h3 className="font-bold text-lg mb-4">Recent Downloads ({selectedSkill.recent_downloads.length})</h3>
-            <div className="space-y-2 max-h-48 overflow-y-auto">
-              {selectedSkill.recent_downloads.slice(0, 5).map((download, idx) => (
-                <div key={idx} className="p-3 bg-gray-50 rounded-lg text-sm">
-                  <div className="font-medium">{download.user_email}</div>
-                  <div className="text-gray-600">{download.purpose || 'Not specified'}</div>
-                  <div className="text-xs text-gray-400 mt-1">
-                    {new Date(download.downloaded_at).toLocaleDateString()}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Recent Reviews */}
-          {selectedSkill.recent_reviews.length > 0 && (
+          <div className="grid grid-cols-2 gap-8">
+            {/* Recent Downloads */}
             <div>
-              <h3 className="font-bold text-lg mb-4">Recent Reviews ({selectedSkill.recent_reviews.length})</h3>
-              <div className="space-y-3 max-h-48 overflow-y-auto">
-                {selectedSkill.recent_reviews.slice(0, 5).map((review, idx) => (
-                  <div key={idx} className="p-3 bg-gray-50 rounded-lg text-sm border-l-4 border-yellow-400">
-                    <div className="flex justify-between items-start">
-                      <div className="font-medium">{review.user_email}</div>
-                      <div className="flex items-center gap-1">
-                        {'⭐'.repeat(review.rating)}
-                      </div>
-                    </div>
-                    <p className="text-gray-600 mt-1">{review.feedback}</p>
-                    <div className="text-xs text-gray-400 mt-1">
-                      {new Date(review.created_at).toLocaleDateString()}
+              <h3 className="font-bold text-lg mb-4">Recent Activity</h3>
+              <div className="space-y-3">
+                {selectedSkill.recent_downloads.slice(0, 5).map((download, idx) => (
+                  <div key={idx} className="p-4 bg-gray-50 rounded-xl text-sm border border-gray-100">
+                    <div className="font-bold text-blue-600">{download.user_email}</div>
+                    <div className="text-gray-500 text-xs mt-1 italic">"{download.purpose || 'General Use'}"</div>
+                    <div className="text-[10px] text-gray-400 mt-2 uppercase font-semibold">
+                      {new Date(download.downloaded_at).toLocaleDateString()}
                     </div>
                   </div>
                 ))}
               </div>
             </div>
-          )}
+
+            {/* Recent Reviews */}
+            <div>
+              <h3 className="font-bold text-lg mb-4">User Feedback</h3>
+              <div className="space-y-3">
+                {selectedSkill.recent_reviews.length > 0 ? selectedSkill.recent_reviews.slice(0, 3).map((review, idx) => (
+                  <div key={idx} className="p-4 bg-white rounded-xl text-sm border-2 border-yellow-100 shadow-sm">
+                    <div className="flex justify-between items-center mb-2">
+                      <div className="font-bold">{review.user_email}</div>
+                      <div className="text-yellow-500">{'★'.repeat(review.rating)}</div>
+                    </div>
+                    <p className="text-gray-600 leading-relaxed">"{review.feedback}"</p>
+                  </div>
+                )) : <div className="text-gray-400 text-sm italic">No reviews yet</div>}
+              </div>
+            </div>
+          </div>
         </div>
       ) : (
         <div className="w-2/3 flex items-center justify-center bg-gray-50">
-          <div className="text-center text-gray-500">
-            <BarChart3 className="w-16 h-16 mx-auto mb-4 opacity-50" />
-            <p>Select a skill to view detailed analytics</p>
+          <div className="text-center">
+            <div className="bg-white p-6 rounded-full shadow-xl mb-6 inline-block">
+              <BarChart3 className="w-12 h-12 text-blue-500 opacity-80" />
+            </div>
+            <h3 className="text-xl font-bold text-gray-400">Select a skill to view analytics</h3>
+            <p className="text-gray-400 text-sm mt-2">Historical data, user feedback, and status management</p>
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// Reusable Metric Card Component
+function MetricCard({ title, value, subtext, icon, color }: any) {
+  const colors: any = {
+    blue: 'bg-blue-50 text-blue-700 border-blue-100',
+    yellow: 'bg-yellow-50 text-yellow-700 border-yellow-100',
+    purple: 'bg-purple-50 text-purple-700 border-purple-100',
+  };
+
+  return (
+    <div className={`p-5 rounded-2xl border ${colors[color] || colors.blue}`}>
+      <div className="flex items-center gap-2 font-bold text-[10px] uppercase tracking-widest opacity-70 mb-3">
+        {icon} {title}
+      </div>
+      <div className="text-3xl font-black">{value}</div>
+      <div className="text-xs mt-2 font-medium opacity-60">{subtext}</div>
     </div>
   );
 }

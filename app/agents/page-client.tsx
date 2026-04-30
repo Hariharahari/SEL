@@ -1,10 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { ChevronLeft, ChevronRight, Filter, Search, Sparkles } from 'lucide-react';
 import AgentCard from '@/components/AgentCard';
 import { SELAgentCard } from '@/types';
-import { Search, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
-import { CATEGORIES, SUBCATEGORIES_BY_CATEGORY, getCategoryForSpecialization } from '@/lib/categoryMapping';
+import {
+  CATEGORIES,
+  SUBCATEGORIES_BY_CATEGORY,
+} from '@/lib/categoryMapping';
+import { getAgentCategory } from '@/lib/agentCategory';
 
 const AGENTS_PER_PAGE = 12;
 
@@ -21,15 +25,21 @@ interface AgentsDirectoryClientProps {
   initialError: string | null;
 }
 
+interface EnhancedAgent extends SELAgentCard {
+  mappedCategory: string;
+  mappedSubcategory: string;
+}
+
 export default function AgentsDirectoryClient({
   initialAgents,
   initialError,
 }: AgentsDirectoryClientProps) {
   const [agents] = useState(initialAgents);
-  const [filteredAgents, setFilteredAgents] = useState<any[]>(
-    initialAgents
-  );
+  const [semanticAgents, setSemanticAgents] = useState<SELAgentCard[] | null>(null);
+  const [filteredAgents, setFilteredAgents] = useState<EnhancedAgent[]>([]);
   const [error] = useState(initialError);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [isSemanticSearching, setIsSemanticSearching] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [filters, setFilters] = useState<FilterState>({
     search: '',
@@ -39,37 +49,37 @@ export default function AgentsDirectoryClient({
     subcategory: '',
   });
 
-  // Enhance agents with mapped categories
-  interface EnhancedAgent extends SELAgentCard {
-    mappedCategory: string;
-    mappedSubcategory: string;
-  }
+  const sourceAgents = semanticAgents || agents;
 
-  const agentsWithCategories: EnhancedAgent[] = agents.map((agent) => {
-    const { category, subcategory } = getCategoryForSpecialization(
-      agent.specialization.primary
-    );
-    return { ...agent, mappedCategory: category, mappedSubcategory: subcategory };
-  });
+  const agentsWithCategories: EnhancedAgent[] = useMemo(
+    () =>
+      sourceAgents.map((agent) => {
+        const { category, subcategory } = getAgentCategory(agent);
+        return {
+          ...agent,
+          mappedCategory: category,
+          mappedSubcategory: subcategory,
+        };
+      }),
+    [sourceAgents]
+  );
 
-  const uniqueStatuses = Array.from(
-    new Set(agents.map((a) => a.status))
-  ).sort();
-
-  const uniqueTechnologies = Array.from(
-    new Set(agents.flatMap((a) => a.technology))
-  ).sort();
-
+  const uniqueStatuses = useMemo(
+    () => Array.from(new Set(agents.map((agent) => agent.status))).sort(),
+    [agents]
+  );
+  const uniqueTechnologies = useMemo(
+    () => Array.from(new Set(agents.flatMap((agent) => agent.technology))).sort(),
+    [agents]
+  );
   const availableSubcategories = filters.category
     ? SUBCATEGORIES_BY_CATEGORY[filters.category] || []
     : [];
 
-  // Apply filters whenever filter state changes
   useEffect(() => {
     let result = agentsWithCategories;
 
-    // Search filter
-    if (filters.search) {
+    if (filters.search && !semanticAgents) {
       const searchLower = filters.search.toLowerCase();
       result = result.filter(
         (agent) =>
@@ -78,107 +88,154 @@ export default function AgentsDirectoryClient({
       );
     }
 
-    // Status filter
     if (filters.status) {
       result = result.filter((agent) => agent.status === filters.status);
     }
 
-    // Technology filter
     if (filters.technology) {
-      result = result.filter((agent) =>
-        agent.technology.includes(filters.technology)
-      );
+      result = result.filter((agent) => agent.technology.includes(filters.technology));
     }
 
-    // Category filter
     if (filters.category) {
       result = result.filter((agent) => agent.mappedCategory === filters.category);
     }
 
-    // Subcategory filter
     if (filters.subcategory) {
-      result = result.filter(
-        (agent) => agent.mappedSubcategory === filters.subcategory
-      );
+      result = result.filter((agent) => agent.mappedSubcategory === filters.subcategory);
     }
 
     setFilteredAgents(result);
-    setCurrentPage(1); // Reset to first page when filters change
-  }, [filters, agents]);
+    setCurrentPage(1);
+  }, [filters, semanticAgents, agentsWithCategories]);
+
+  useEffect(() => {
+    let active = true;
+
+    const runSemanticSearch = async () => {
+      const query = filters.search.trim();
+
+      if (!query) {
+        setSemanticAgents(null);
+        setSearchError(null);
+        return;
+      }
+
+      setIsSemanticSearching(true);
+
+      try {
+        const response = await fetch('/api/ai-search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query }),
+        });
+
+        if (!response.ok) {
+          const payload = await response.json().catch(() => ({}));
+          throw new Error(payload.error || 'Semantic search failed');
+        }
+
+        const payload = await response.json();
+        if (!active) return;
+
+        const results = Array.isArray(payload.results)
+          ? payload.results.map((item: { agent: SELAgentCard }) => item.agent)
+          : [];
+
+        setSemanticAgents(results);
+        setSearchError(null);
+      } catch (semanticError) {
+        if (!active) return;
+        setSemanticAgents(null);
+        setSearchError(
+          semanticError instanceof Error ? semanticError.message : 'Semantic search failed'
+        );
+      } finally {
+        if (active) {
+          setIsSemanticSearching(false);
+        }
+      }
+    };
+
+    const timeout = window.setTimeout(runSemanticSearch, 320);
+    return () => {
+      active = false;
+      window.clearTimeout(timeout);
+    };
+  }, [filters.search]);
 
   const handleFilterChange = (key: keyof FilterState, value: string) => {
     if (key === 'category') {
-      // Reset subcategory when category changes
-      setFilters((prev) => ({ ...prev, [key]: value, subcategory: '' }));
-    } else {
-      setFilters((prev) => ({ ...prev, [key]: value }));
+      setFilters((current) => ({ ...current, category: value, subcategory: '' }));
+      return;
     }
+
+    setFilters((current) => ({ ...current, [key]: value }));
+  };
+
+  const clearFilters = () => {
+    setFilters({
+      search: '',
+      status: '',
+      technology: '',
+      category: '',
+      subcategory: '',
+    });
   };
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Hero Section */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-blue-900 via-blue-800 to-gray-900 text-white py-20 px-4">
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.3),rgba(255,255,255,0))]"></div>
-        </div>
-        
-        <div className="max-w-7xl mx-auto relative z-10">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4 leading-tight">
-            Agent Directory
+    <div className="sel-page">
+      <section className="border-b border-border bg-bg-secondary px-4 py-14">
+        <div className="relative z-10 mx-auto max-w-7xl">
+          <h1 className="mb-4 bg-gradient-to-r from-primary to-secondary bg-clip-text text-3xl font-bold leading-tight text-transparent md:text-4xl">
+            Skill Directory
           </h1>
-          <p className="text-xl text-blue-100 max-w-2xl">
-            Explore {agents.length}+ specialized AI agents across Frontend, Backend, Testing, DevOps, and more.
+          <p className="max-w-2xl text-base text-text-secondary md:text-lg">
+            Explore {agents.length}+ specialized AI skills across Frontend, Backend, Testing, DevOps, and more.
           </p>
         </div>
       </section>
 
-      {/* Filters Section */}
-      <section className="bg-gray-50 py-12 px-4 border-b border-gray-200">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-center gap-3 mb-6">
-            <Filter className="w-5 h-5 text-blue-600" />
-            <h2 className="text-lg font-semibold text-gray-900">Filter Agents</h2>
-          </div>
+      <section className="border-b border-border bg-bg-primary px-4 py-8">
+        <div className="mx-auto max-w-7xl">
+            <div className="mb-6 flex items-center gap-3">
+              <Filter className="h-5 w-5 text-primary" />
+            <h2 className="text-lg font-semibold text-text-primary">Filter Skills</h2>
+            </div>
 
-          <div className="bg-white rounded-lg p-6 border border-gray-200">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
-              {/* Search */}
+          <div className="sel-panel p-6">
+            {searchError && (
+              <div className="mb-4 rounded-xl border border-warning/20 bg-warning/10 p-3 text-sm text-text-primary">
+                {searchError}
+              </div>
+            )}
+
+            <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Search
-                </label>
+                <label className="sel-label">Search</label>
                 <div className="relative">
                   <input
                     type="text"
-                    placeholder="Search agents..."
+                    placeholder="Search skills by name, description, tags, or categories..."
                     value={filters.search}
-                    onChange={(e) =>
-                      handleFilterChange('search', e.target.value)
-                    }
-                    className="
-                      w-full px-4 py-2 border border-gray-300 rounded-lg
-                      focus:ring-2 focus:ring-blue-600 focus:border-transparent
-                      outline-none transition-all duration-200
-                    "
+                    onChange={(event) => handleFilterChange('search', event.target.value)}
+                    className="sel-input py-2 pl-4 pr-10"
                   />
-                  <Search className="absolute right-3 top-2.5 w-5 h-5 text-gray-400" />
+                  <Search className="absolute right-3 top-2.5 h-5 w-5 text-text-muted" />
+                </div>
+                <div className="mt-2 flex items-center gap-2 text-xs text-text-muted">
+                  <Sparkles className="h-3.5 w-3.5 text-primary" />
+                  {isSemanticSearching
+                    ? 'Searching Redis-backed vectors now...'
+                    : 'Search uses approved skill descriptions plus FAISS similarity.'}
                 </div>
               </div>
 
-              {/* Category Filter */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Category
-                </label>
+                <label className="sel-label">Category</label>
                 <select
                   value={filters.category}
-                  onChange={(e) => handleFilterChange('category', e.target.value)}
-                  className="
-                    w-full px-4 py-2 border border-gray-300 rounded-lg
-                    focus:ring-2 focus:ring-blue-600 focus:border-transparent
-                    outline-none transition-all duration-200
-                  "
+                  onChange={(event) => handleFilterChange('category', event.target.value)}
+                  className="sel-input px-4 py-2"
                 >
                   <option value="">All Categories</option>
                   {CATEGORIES.map((category) => (
@@ -189,21 +246,13 @@ export default function AgentsDirectoryClient({
                 </select>
               </div>
 
-              {/* Subcategory Filter */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Subcategory
-                </label>
+                <label className="sel-label">Subcategory</label>
                 <select
                   value={filters.subcategory}
-                  onChange={(e) => handleFilterChange('subcategory', e.target.value)}
+                  onChange={(event) => handleFilterChange('subcategory', event.target.value)}
                   disabled={!filters.category}
-                  className="
-                    w-full px-4 py-2 border border-gray-300 rounded-lg
-                    focus:ring-2 focus:ring-blue-600 focus:border-transparent
-                    outline-none transition-all duration-200
-                    disabled:bg-gray-100 disabled:text-gray-500
-                  "
+                  className="sel-input px-4 py-2"
                 >
                   <option value="">All Subcategories</option>
                   {availableSubcategories.map((subcategory) => (
@@ -214,19 +263,12 @@ export default function AgentsDirectoryClient({
                 </select>
               </div>
 
-              {/* Status Filter */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Status
-                </label>
+                <label className="sel-label">Status</label>
                 <select
                   value={filters.status}
-                  onChange={(e) => handleFilterChange('status', e.target.value)}
-                  className="
-                    w-full px-4 py-2 border border-gray-300 rounded-lg
-                    focus:ring-2 focus:ring-blue-600 focus:border-transparent
-                    outline-none transition-all duration-200
-                  "
+                  onChange={(event) => handleFilterChange('status', event.target.value)}
+                  className="sel-input px-4 py-2"
                 >
                   <option value="">All Statuses</option>
                   {uniqueStatuses.map((status) => (
@@ -237,19 +279,12 @@ export default function AgentsDirectoryClient({
                 </select>
               </div>
 
-              {/* Technology Filter */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Technology
-                </label>
+                <label className="sel-label">Technology</label>
                 <select
                   value={filters.technology}
-                  onChange={(e) => handleFilterChange('technology', e.target.value)}
-                  className="
-                    w-full px-4 py-2 border border-gray-300 rounded-lg
-                    focus:ring-2 focus:ring-blue-600 focus:border-transparent
-                    outline-none transition-all duration-200
-                  "
+                  onChange={(event) => handleFilterChange('technology', event.target.value)}
+                  className="sel-input px-4 py-2"
                 >
                   <option value="">All Technologies</option>
                   {uniqueTechnologies.map((tech) => (
@@ -261,16 +296,14 @@ export default function AgentsDirectoryClient({
               </div>
             </div>
 
-            {/* Clear Filters */}
-            {(filters.search || filters.status || filters.technology || filters.category || filters.subcategory) && (
+            {(filters.search ||
+              filters.status ||
+              filters.technology ||
+              filters.category ||
+              filters.subcategory) && (
               <button
-                onClick={() =>
-                  setFilters({ search: '', status: '', technology: '', category: '', subcategory: '' })
-                }
-                className="
-                  text-sm text-blue-600 hover:text-blue-700
-                  font-medium transition-colors duration-200
-                "
+                onClick={clearFilters}
+                className="text-sm font-medium text-primary transition-colors duration-200 hover:text-primary-dark"
               >
                 Clear All Filters
               </button>
@@ -279,85 +312,66 @@ export default function AgentsDirectoryClient({
         </div>
       </section>
 
-      {/* Results Section */}
-      <section className="bg-white py-12 px-4">
-        <div className="max-w-7xl mx-auto">
+      <section className="bg-bg-primary px-4 py-12">
+        <div className="mx-auto max-w-7xl">
           {error ? (
-            <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+            <div className="rounded-xl border border-error/20 bg-error/10 p-4 text-error">
               {error}
             </div>
           ) : filteredAgents.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-lg text-gray-600 mb-4">
+            <div className="py-12 text-center">
+              <p className="mb-4 text-lg text-text-secondary">
                 {agents.length === 0
-                  ? 'No agents found. Start by uploading your first agent!'
-                  : 'No agents found matching your filters.'}
+                  ? 'No agents found. Start by uploading your first agent.'
+                  : 'No skills found matching your filters.'}
               </p>
               {agents.length > 0 && filters.search && (
-                <button
-                  onClick={() =>
-                    setFilters({ search: '', status: '', technology: '', category: '', subcategory: '' })
-                  }
-                  className="
-                    inline-flex items-center gap-2 px-6 py-2 rounded-lg
-                    bg-blue-600 hover:bg-blue-700 text-white font-medium
-                    transition-colors duration-200
-                  "
-                >
+                <button onClick={clearFilters} className="sel-button-primary px-6 py-2">
                   Clear Filters
                 </button>
               )}
             </div>
           ) : (
             <>
-              <div className="flex items-center justify-between mb-8">
+              <div className="mb-8 flex items-center justify-between">
                 <div>
-                  <h2 className="text-xl font-semibold text-gray-900">
-                    Search Results
-                  </h2>
-                  <p className="text-gray-600 mt-1">
-                    Showing {Math.min((currentPage - 1) * AGENTS_PER_PAGE + 1, filteredAgents.length)} - {Math.min(currentPage * AGENTS_PER_PAGE, filteredAgents.length)} of {filteredAgents.length} agents
+                  <h2 className="text-xl font-semibold text-text-primary">Search Results</h2>
+                  <p className="mt-1 text-text-secondary">
+                    Showing {Math.min((currentPage - 1) * AGENTS_PER_PAGE + 1, filteredAgents.length)} -{' '}
+                    {Math.min(currentPage * AGENTS_PER_PAGE, filteredAgents.length)} of {filteredAgents.length} skills
+                    {filters.search && semanticAgents ? ' from semantic search' : ''}
                   </p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+              <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {filteredAgents
-                  .slice(
-                    (currentPage - 1) * AGENTS_PER_PAGE,
-                    currentPage * AGENTS_PER_PAGE
-                  )
+                  .slice((currentPage - 1) * AGENTS_PER_PAGE, currentPage * AGENTS_PER_PAGE)
                   .map((agent) => (
-                  <AgentCard 
-                    key={agent['agent id']} 
-                    agent={agent}
-                    category={agent.mappedCategory}
-                    subcategory={agent.mappedSubcategory}
-                  />
-                ))}
+                    <AgentCard
+                      key={agent['agent id']}
+                      agent={agent}
+                      category={agent.mappedCategory}
+                      subcategory={agent.mappedSubcategory}
+                    />
+                  ))}
               </div>
 
-              {/* Pagination Controls */}
               {Math.ceil(filteredAgents.length / AGENTS_PER_PAGE) > 1 && (
-                <div className="flex items-center justify-center gap-4 mt-12 pt-8 border-t border-gray-200">
+                <div className="mt-12 flex items-center justify-center gap-4 border-t border-border pt-8">
                   <button
-                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    onClick={() => setCurrentPage((value) => Math.max(value - 1, 1))}
                     disabled={currentPage === 1}
-                    className="
-                      flex items-center gap-2 px-4 py-2 rounded-lg
-                      bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium
-                      transition-colors duration-200
-                      disabled:opacity-50 disabled:cursor-not-allowed
-                    "
+                    className="sel-button-ghost border border-border px-4 py-2"
                   >
-                    <ChevronLeft className="w-4 h-4" />
+                    <ChevronLeft className="h-4 w-4" />
                     Previous
                   </button>
 
                   <div className="flex items-center gap-2">
                     {Array.from(
                       { length: Math.ceil(filteredAgents.length / AGENTS_PER_PAGE) },
-                      (_, i) => i + 1
+                      (_, index) => index + 1
                     )
                       .slice(
                         Math.max(0, currentPage - 2),
@@ -367,13 +381,11 @@ export default function AgentsDirectoryClient({
                         <button
                           key={page}
                           onClick={() => setCurrentPage(page)}
-                          className={`
-                            px-3 py-2 rounded-lg font-medium transition-colors duration-200
-                            ${currentPage === page
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                            }
-                          `}
+                          className={`rounded-lg px-3 py-2 font-medium transition-colors duration-200 ${
+                            currentPage === page
+                              ? 'bg-primary text-white'
+                              : 'bg-bg-tertiary text-text-primary hover:bg-primary/10'
+                          }`}
                         >
                           {page}
                         </button>
@@ -382,23 +394,15 @@ export default function AgentsDirectoryClient({
 
                   <button
                     onClick={() =>
-                      setCurrentPage(prev =>
-                        Math.min(
-                          prev + 1,
-                          Math.ceil(filteredAgents.length / AGENTS_PER_PAGE)
-                        )
+                      setCurrentPage((value) =>
+                        Math.min(value + 1, Math.ceil(filteredAgents.length / AGENTS_PER_PAGE))
                       )
                     }
                     disabled={currentPage === Math.ceil(filteredAgents.length / AGENTS_PER_PAGE)}
-                    className="
-                      flex items-center gap-2 px-4 py-2 rounded-lg
-                      bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium
-                      transition-colors duration-200
-                      disabled:opacity-50 disabled:cursor-not-allowed
-                    "
+                    className="sel-button-ghost border border-border px-4 py-2"
                   >
                     Next
-                    <ChevronRight className="w-4 h-4" />
+                    <ChevronRight className="h-4 w-4" />
                   </button>
                 </div>
               )}

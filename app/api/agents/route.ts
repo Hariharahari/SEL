@@ -1,55 +1,47 @@
-/**
- * API Route for Agent Management
- * Handles POST requests to upload/save new agents to Redis
- */
-
 import { NextRequest, NextResponse } from 'next/server';
-import { saveAgent } from '@/lib/agentStore';
-import { SELAgentCard } from '@/types';
+import { withAuth } from '@/lib/withAuth';
+import { submitAgent } from '@/lib/agentWorkflow';
+import { ensurePortalUser } from '@/lib/userSync';
+import { buildSkillPayloadFromFormData, normalizeSkillUploadPayload } from '@/lib/skillCard';
+import { saveSubmissionFiles } from '@/lib/submissionFiles';
 
-/**
- * POST /api/agents
- * Accepts a JSON body containing a SELAgentCard object
- * Validates and saves it to Redis
- */
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async (request: NextRequest, { user }) => {
   try {
-    // Parse request body
-    const body = await request.json();
+    await ensurePortalUser(user);
+    const contentType = request.headers.get('content-type') || '';
+    let body: unknown;
+    let attachments: File[] = [];
 
-    // Validate required fields
-    if (!body['agent id'] || typeof body['agent id'] !== 'string') {
-      return NextResponse.json(
-        { error: 'Missing or invalid "agent id" field' },
-        { status: 400 }
-      );
+    if (contentType.includes('multipart/form-data')) {
+      const formData = await request.formData();
+      attachments = formData
+        .getAll('attachments')
+        .filter((entry): entry is File => entry instanceof File && entry.size > 0);
+
+      if (!attachments.some((file) => file.name.toLowerCase() === 'agent.md')) {
+        return NextResponse.json(
+          { error: 'agent.md is mandatory for every skill submission.' },
+          { status: 400 }
+        );
+      }
+
+      body = buildSkillPayloadFromFormData(formData);
+    } else {
+      body = await request.json();
     }
 
-    if (!body.name || typeof body.name !== 'string') {
-      return NextResponse.json(
-        { error: 'Missing or invalid "name" field' },
-        { status: 400 }
-      );
+    const { skillCard, agentCard } = normalizeSkillUploadPayload(body);
+    if (attachments.length > 0) {
+      agentCard.sourceFiles = await saveSubmissionFiles(skillCard.starterkit_id, attachments);
     }
-
-    // Cast to SELAgentCard type (basic validation)
-    const agent: SELAgentCard = body;
-
-    // Save to Redis
-    const success = await saveAgent(agent);
-
-    if (!success) {
-      return NextResponse.json(
-        { error: 'Failed to save agent to database' },
-        { status: 500 }
-      );
-    }
+    await submitAgent(agentCard, user.user_id);
 
     return NextResponse.json(
       {
         success: true,
-        message: `Agent "${agent.name}" uploaded successfully`,
-        agentId: agent['agent id'],
+        message: `Skill "${skillCard.name}" submitted for admin approval`,
+        skillId: skillCard.starterkit_id,
+        status: 'pending',
       },
       { status: 201 }
     );
@@ -63,9 +55,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (error instanceof Error) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: 400 }
+      );
+    }
+
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
     );
   }
-}
+});

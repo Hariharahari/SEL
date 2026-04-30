@@ -16,6 +16,9 @@ import {
 const STORAGE_KEY = "auth_state";
 const TOKEN_REFRESH_BUFFER = 60; // Refresh token 60 seconds before expiry
 
+const normalizeRole = (role: unknown): "user" | "admin" =>
+  String(role || "user").toLowerCase() === "admin" ? "admin" : "user";
+
 /**
  * Validation utilities
  */
@@ -85,6 +88,7 @@ export const tokenStorage = {
    * Save authentication state to localStorage
    */
   saveAuthState(state: StoredAuthState): void {
+    if (typeof window === "undefined") return;
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     } catch (error) {
@@ -96,6 +100,7 @@ export const tokenStorage = {
    * Retrieve authentication state from localStorage
    */
   getAuthState(): StoredAuthState | null {
+    if (typeof window === "undefined") return null;
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       return stored ? JSON.parse(stored) : null;
@@ -109,6 +114,7 @@ export const tokenStorage = {
    * Clear authentication state from localStorage
    */
   clearAuthState(): void {
+    if (typeof window === "undefined") return;
     try {
       localStorage.removeItem(STORAGE_KEY);
     } catch (error) {
@@ -156,12 +162,9 @@ export const tokenStorage = {
  * API client utilities
  */
 
-// Get backend URL
+// API routes now live in this Next app, so browser calls can stay same-origin.
 const getBackendUrl = () => {
-  if (typeof window !== 'undefined') {
-    return window.__AUTH_API_URL__ || 'http://localhost:3001';
-  }
-  return process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+  return "";
 };
 
 export const authApi = {
@@ -201,14 +204,20 @@ export const authApi = {
       }
 
       const data: LoginResponse = await response.json();
+      if (!data.access_token || !data.refresh_token || !data.user_id) {
+        return {
+          success: false,
+          error: "Login succeeded but no JWT token was returned",
+        };
+      }
 
       // Save to localStorage
-      const expiresAt = Date.now() + data.expires_in * 1000;
+      const expiresAt = Date.now() + (data.expires_in || 3600) * 1000;
       tokenStorage.saveAuthState({
         access_token: data.access_token,
         refresh_token: data.refresh_token,
         user_id: data.user_id,
-        role: data.role,
+        role: normalizeRole(data.role),
         expires_at: expiresAt,
       });
 
@@ -261,7 +270,7 @@ export const authApi = {
       // Update stored state with new access token
       const state = tokenStorage.getAuthState();
       if (state) {
-        const expiresAt = Date.now() + data.expires_in * 1000;
+        const expiresAt = Date.now() + (data.expires_in || 3600) * 1000;
         tokenStorage.saveAuthState({
           ...state,
           access_token: data.access_token,

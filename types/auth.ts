@@ -33,7 +33,7 @@ export interface LoginResponse {
   /** User ID of authenticated user */
   user_id: string;
   /** User role: "user" or "admin" */
-  role: "user" | "admin";
+  role: "user" | "admin" | "USER" | "ADMIN";
   /** Whether user must change password on next login */
   must_change_password: boolean;
   /** Whether password has expired */
@@ -92,7 +92,7 @@ export interface UserProfile {
   /** User email */
   email: string;
   /** User role */
-  role: "user" | "admin";
+  role: "user" | "admin" | "USER" | "ADMIN";
   /** User display name */
   name?: string;
   /** Whether password must be changed */
@@ -116,7 +116,7 @@ export interface StoredAuthState {
   access_token: string;
   refresh_token: string;
   user_id: string;
-  role: "user" | "admin";
+  role: "user" | "admin" | "USER" | "ADMIN";
   expires_at: number; // Unix timestamp in milliseconds
 }
 

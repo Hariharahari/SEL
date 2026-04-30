@@ -1,0 +1,38 @@
+{
+  "skill_card": {
+    "starterkit_id": "secure-code-guard",
+    "name": "Cyber Armor Guard",
+    "description": "Audits Next.js API routes for IDOR, CSRF, and SQL Injection.",
+    "origin": {
+      "org": "SEL-Core",
+      "sub_org": "Security",
+      "creator": "Sec-Lead"
+    },
+    "maintainers": [
+      {
+        "name": "Security Ops",
+        "contact": "sec@company.com"
+      }
+    ],
+    "version": "2.1.0",
+    "status": "verified",
+    "technology": ["Next.js", "Zod"],
+    "specialization": {
+      "primary": "security_review",
+      "domain_specific": ["Auth Patterns", "Data Sanitization"]
+    },
+    "tasks": [
+      {
+        "name": "Audit API Route",
+        "description": "Scans for missing validation.",
+        "async": false
+      }
+    ],
+    "documentation": {
+      "readme": "https://github.com/sel/sec/blob/main/docs.md",
+      "howto": "https://github.com/sel/sec/blob/main/docs.md#setup",
+      "changelog": "v2 release"
+    },
+    "supported_harness": ["Windsurf"]
+  }
+}

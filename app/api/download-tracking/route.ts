@@ -13,10 +13,7 @@ interface UserData {
   iso?: string;
   bg?: string;
   account?: string;
-  downloadCount: number;
-  previousDownloads: DownloadRecord[];
-  needsFeedback: boolean;
-  isExisting: boolean;
+  downloads: DownloadRecord[];
 }
 
 export async function GET(request: NextRequest) {
@@ -87,7 +84,7 @@ export async function POST(request: NextRequest) {
     }
 
     const userKey = `user:${userId}`;
-    let userData = { userId, downloads: [] as DownloadRecord[] };
+    let userData: UserData = { userId, downloads: [] };
 
     // Get existing user data
     const userDataJson = await redis.get(userKey);
@@ -148,7 +145,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const userKey = `user:${userId}`;
-    let userData = { userId, downloads: [] as DownloadRecord[] };
+    let userData: UserData = { userId, downloads: [] };
 
     // Get existing user data
     const userDataJson = await redis.get(userKey);

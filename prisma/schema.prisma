@@ -1,0 +1,83 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+
+model User {
+  id                 String   @id
+  email              String   @unique
+  role               Role     @default(USER)
+  businessGroup      String?
+  IOU                String?
+  account            String?
+  mustChangePassword Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  downloads           SkillDownload[]
+  feedbacks           SkillFeedback[]
+  maintainedSkills    SkillMaintainer[] @relation("MaintainerUser")
+  assignedMaintainers SkillMaintainer[] @relation("MaintainerAssignedBy")
+
+  @@index([email])
+}
+model SkillMaintainer {
+  skillId      String
+  userId       String
+  assignedAt   DateTime @default(now())
+  assignedById String
+
+  user       User @relation("MaintainerUser",      fields: [userId],       references: [id])
+  assignedBy User @relation("MaintainerAssignedBy", fields: [assignedById], references: [id])
+
+  @@id([skillId, userId])
+  @@index([skillId])
+  @@index([userId])
+}
+
+// ── Skill Download ────────────────────────────────────
+model SkillDownload {
+  skillId      String
+  version      String
+  userId       String
+  purpose      String
+  downloadedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@id([userId, skillId, version])
+  @@index([skillId, downloadedAt])  // trending queries
+  @@index([skillId, version])       // per version stats
+  @@index([userId])
+}
+
+// ── Skill Feedback ────────────────────────────────────
+model SkillFeedback {
+  skillId   String
+  version   String
+  userId    String
+  rating    Int           // 1-5, enforced via check constraint below
+  feedback  String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@id([userId, skillId, version])
+  @@index([skillId, version])
+  @@index([rating])
+}
+
+enum Role {
+  USER
+  ADMIN
+}

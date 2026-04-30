@@ -1,47 +1,37 @@
-import { NextResponse } from 'next/server';
-import { LogoutRequest } from '@/types/auth';
+import { NextRequest, NextResponse } from "next/server";
+import axios from "axios";
+import {
+  ACCESS_COOKIE_NAME,
+  REFRESH_COOKIE_NAME,
+  getAuthErrorMessage,
+  getCentralAuthUrl,
+} from "@/lib/centralAuth";
+import { LogoutRequest } from "@/types/auth";
 
-/**
- * Logout Route - POST /api/auth/logout
- * 
- * Follows OpenAPI contract:
- * - Accepts: refresh_token (to revoke)
- * - Returns: 200 OK on success
- * 
- * MOCK: Always succeeds (no actual token revocation)
- */
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  let status = 200;
+  let payload: Record<string, unknown> = { message: "Logged out successfully" };
+
   try {
-    const body: LogoutRequest = await request.json();
+    const body = (await request.json().catch(() => ({}))) as Partial<LogoutRequest>;
+    const refreshToken = body.refresh_token || request.cookies.get(REFRESH_COOKIE_NAME)?.value;
+    const authUrl = getCentralAuthUrl();
 
-    // Validate required fields
-    if (!body.refresh_token) {
-      return NextResponse.json(
-        { 
-          detail: 'Missing required field: refresh_token',
-          error: 'ValidationError'
-        },
-        { status: 422 }
-      );
+    if (authUrl && refreshToken) {
+      await axios.post(`${authUrl}/api/auth/logout`, {
+        refresh_token: refreshToken,
+      });
     }
-
-    // MOCK: In production, this would:
-    // 1. Verify the refresh token
-    // 2. Add it to a revocation blacklist or mark as revoked in database
-    // 3. Clear any associated sessions
-
-    return NextResponse.json(
-      { message: 'Logged out successfully' },
-      { status: 200 }
-    );
-  } catch (error) {
-    console.error('Logout error:', error);
-    return NextResponse.json(
-      { 
-        detail: 'Invalid request',
-        error: 'BadRequest'
-      },
-      { status: 400 }
-    );
+  } catch (error: any) {
+    status = error.response?.status ?? 502;
+    payload = {
+      detail: getAuthErrorMessage(error, "Central logout failed"),
+      error: "LogoutError",
+    };
   }
+
+  const response = NextResponse.json(payload, { status });
+  response.cookies.delete(ACCESS_COOKIE_NAME);
+  response.cookies.delete(REFRESH_COOKIE_NAME);
+  return response;
 }

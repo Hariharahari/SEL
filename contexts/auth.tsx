@@ -1,14 +1,14 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { authApi, tokenStorage, isAuthenticated as checkAuthenticated } from '@/lib/auth';
-import { AuthState, UserProfile } from '@/types/auth';
+import { authApi, tokenStorage } from '@/lib/auth';
+import { AuthState } from '@/types/auth';
 
 /**
  * Authentication Context
  * Provides auth state and methods to all child components
  */
-interface AuthContextType extends AuthState {
+interface AuthContextType extends Omit<AuthState, 'refreshToken'> {
   login: (user_id: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   refreshToken: () => Promise<boolean>;
@@ -18,7 +18,6 @@ interface AuthContextType extends AuthState {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [isMounted, setIsMounted] = useState(false);
   const [authState, setAuthState] = useState<AuthState>({
     isAuthenticated: false,
     isLoading: true,
@@ -32,41 +31,63 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
    * Initialize auth state from localStorage on mount (client-side only)
    */
   useEffect(() => {
-    setIsMounted(true);
+    let isActive = true;
 
-    try {
-      const storedState = tokenStorage.getAuthState();
-      if (storedState) {
+    const initializeAuth = async () => {
+      try {
+        const storedState = tokenStorage.getAuthState();
         const token = tokenStorage.getAccessToken();
-        if (token) {
+
+        if (!storedState || !token) {
+          if (isActive) {
+            setAuthState({
+              isAuthenticated: false,
+              isLoading: false,
+              user: null,
+              error: null,
+              accessToken: null,
+              refreshToken: null,
+            });
+          }
+          return;
+        }
+
+        const userResult = await authApi.getCurrentUser();
+        if (!isActive) return;
+
+        if (userResult.success) {
           setAuthState({
             isAuthenticated: true,
             isLoading: false,
-            user: {
-              user_id: storedState.user_id,
-              email: `${storedState.user_id}@example.com`,
-              role: storedState.role,
-              name: storedState.user_id,
-            },
+            user: userResult.data,
             error: null,
             accessToken: token,
             refreshToken: storedState.refresh_token,
           });
           return;
         }
+      } catch (error) {
+        console.error('Failed to initialize auth:', error);
       }
-    } catch (error) {
-      console.error('Failed to initialize auth:', error);
-    }
 
-    setAuthState({
-      isAuthenticated: false,
-      isLoading: false,
-      user: null,
-      error: null,
-      accessToken: null,
-      refreshToken: null,
-    });
+      tokenStorage.clearAuthState();
+      if (isActive) {
+        setAuthState({
+          isAuthenticated: false,
+          isLoading: false,
+          user: null,
+          error: null,
+          accessToken: null,
+          refreshToken: null,
+        });
+      }
+    };
+
+    void initializeAuth();
+
+    return () => {
+      isActive = false;
+    };
   }, []);
 
   /**
@@ -90,11 +111,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Fetch user profile
       const userResult = await authApi.getCurrentUser();
       if (userResult.success) {
+        const storedState = tokenStorage.getAuthState();
         setAuthState(prev => ({
           ...prev,
           isAuthenticated: true,
           user: userResult.data,
           accessToken: tokenStorage.getAccessToken(),
+          refreshToken: storedState?.refresh_token || null,
           isLoading: false,
           error: null,
         }));
@@ -136,7 +159,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (result.success) {
         setAuthState(prev => ({
           ...prev,
+          isAuthenticated: true,
+          user: prev.user,
           accessToken: tokenStorage.getAccessToken(),
+          refreshToken: tokenStorage.getRefreshToken(),
         }));
         return true;
       } else {
@@ -156,7 +182,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (result.success) {
       setAuthState(prev => ({
         ...prev,
+        isAuthenticated: true,
         user: result.data,
+        accessToken: tokenStorage.getAccessToken(),
+        refreshToken: tokenStorage.getRefreshToken(),
+        error: null,
       }));
     } else {
       // User fetch failed, logout
