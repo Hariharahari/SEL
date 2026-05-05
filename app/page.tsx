@@ -14,13 +14,12 @@ import {
   Users,
 } from 'lucide-react';
 import AgentCard from '@/components/AgentCard';
-import { getAllAgents } from '@/lib/agentStore';
+import { getTrendingAgents } from '@/lib/agentWorkflow';
 import type { SELAgentCard } from '@/types';
 
 async function getFeaturedAgents(): Promise<SELAgentCard[]> {
   try {
-    const agents = await getAllAgents();
-    return agents.slice(0, 6);
+    return await getTrendingAgents(6);
   } catch (error) {
     console.error('Error loading featured agents:', error);
     return [];
@@ -70,7 +69,7 @@ const stats = [
 ];
 
 export default async function HomePage() {
-  const featuredAgents = await getFeaturedAgents();
+  const trendingAgents = await getFeaturedAgents();
 
   return (
     <div className="sel-page">
@@ -181,9 +180,9 @@ export default async function HomePage() {
         <div className="sel-shell">
           <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
             <div className="max-w-2xl">
-              <h2 className="text-3xl font-semibold text-text-primary">Featured skills</h2>
+              <h2 className="text-3xl font-semibold text-text-primary">Trending skills</h2>
               <p className="mt-3 text-base leading-7 text-text-secondary">
-                Start with a few approved skills and then go deeper in the directory when you need a closer fit.
+                These skills are ranked by real download activity, with a trend signal based on recent weekly momentum.
               </p>
             </div>
             <Link href="/agents" className="sel-button-ghost border border-border px-4 py-2 text-sm">
@@ -192,7 +191,7 @@ export default async function HomePage() {
             </Link>
           </div>
 
-          {featuredAgents.length === 0 ? (
+          {trendingAgents.length === 0 ? (
             <div className="sel-panel p-8 text-center">
               <Code2 className="mx-auto h-8 w-8 text-primary" />
               <p className="mt-4 text-lg font-semibold text-text-primary">No skills available yet.</p>
@@ -202,7 +201,7 @@ export default async function HomePage() {
             </div>
           ) : (
             <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-              {featuredAgents.map((agent) => (
+              {trendingAgents.map((agent) => (
                 <AgentCard key={agent['agent id']} agent={agent} />
               ))}
             </div>

@@ -109,6 +109,9 @@ export interface SELAgentCard {
   categoryOverride?: string;
   subcategoryOverride?: string;
   sourceFiles?: SubmissionAttachment[];
+  ingestionSource?: 'manual-upload' | 'seed' | 'legacy';
+  isActive?: boolean;
+  inactiveAt?: string;
 }
 
 // ===== SKILL CARD TYPES =====

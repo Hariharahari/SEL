@@ -1,12 +1,13 @@
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import axios from "axios";
-import { ACCESS_COOKIE_NAME, getBearerToken, getCentralAuthUrl } from "@/lib/centralAuth";
+import { ACCESS_COOKIE_NAME, getBearerToken, getCentralAuthUrl, getDummyUserByToken, getDummyUserProfile } from "@/lib/centralAuth";
 
 export interface AuthUser {
   user_id:              string;
   email:                string;
   role:                 string;
+  name?:                string;
   must_change_password: boolean;
   password_expired:     boolean;
   created_at:           string;
@@ -86,6 +87,11 @@ async function verifyRequestToken(req: NextRequest): Promise<AuthUser | null> {
   try {
     const token = getBearerToken(req) || (await cookies()).get(ACCESS_COOKIE_NAME)?.value;
     if (!token) return null;
+
+    const dummyUser = getDummyUserByToken(token);
+    if (dummyUser) {
+      return getDummyUserProfile(dummyUser);
+    }
 
     const authUrl = getCentralAuthUrl();
     if (!authUrl) return null;

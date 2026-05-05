@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { authApi, tokenStorage } from '@/lib/auth';
 
-type HistoryKind = 'approved' | 'pending' | 'rejected' | 'downloads';
+type HistoryKind = 'approved' | 'inactive' | 'pending' | 'rejected' | 'downloads';
 
 export default function AdminHistoryPage() {
   const params = useParams<{ kind: string }>();
@@ -70,6 +70,7 @@ export default function AdminHistoryPage() {
 
   const title = {
     approved: 'Approved Skills History',
+    inactive: 'Inactive Skills History',
     pending: 'Pending Skills History',
     rejected: 'Rejected Skills History',
     downloads: 'Download History',
@@ -104,15 +105,21 @@ export default function AdminHistoryPage() {
                       BG: {item.user.businessGroup || 'N/A'} - ISU: {item.user.IOU || 'N/A'} - Account: {item.user.account || 'N/A'}
                     </p>
                   </>
-                ) : kind === 'approved' ? (
+                ) : kind === 'approved' || kind === 'inactive' ? (
                   <>
                     <Link href={`/admin/analytics/${item.agent['agent id']}`} className="text-lg font-semibold text-text-primary hover:text-primary">
                       {item.agent.name}
                     </Link>
                     <p className="mt-1 text-sm text-text-secondary">{item.agent.description}</p>
-                    <p className="mt-2 text-xs text-text-muted">
-                      Downloads: {item.agent.downloads?.total_download_overall || 0}
-                    </p>
+                    {kind === 'approved' ? (
+                      <p className="mt-2 text-xs text-text-muted">
+                        Downloads: {item.agent.downloads?.total_download_overall || 0}
+                      </p>
+                    ) : (
+                      <p className="mt-2 text-xs text-text-muted">
+                        Inactive on {item.agent.inactiveAt ? new Date(item.agent.inactiveAt).toLocaleString() : 'unknown date'}
+                      </p>
+                    )}
                   </>
                 ) : kind === 'pending' ? (
                   <>

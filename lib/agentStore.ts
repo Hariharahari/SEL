@@ -1,6 +1,7 @@
 import 'server-only';
 import redis from './redis';
 import type { AgentAnalysis, SELAgentCard } from '@/types';
+import { removeVectorRecord } from './faiss';
 
 const LIVE_AGENTS_HASH_KEY = 'agents_catalog';
 const PENDING_AGENTS_HASH_KEY = 'agents_pending';
@@ -41,8 +42,57 @@ async function parseHashValues<T>(hashKey: string): Promise<T[]> {
     .filter((item): item is T => item !== null);
 }
 
+function isAgentActive(agent: SELAgentCard) {
+  return agent.isActive !== false;
+}
+
+function isManualUploadedAgent(agent: SELAgentCard) {
+  return agent.ingestionSource === 'manual-upload' || Boolean(agent.sourceFiles?.length);
+}
+
+async function hydrateLegacyManualAgent(agent: SELAgentCard) {
+  if (agent.ingestionSource || !isManualUploadedAgent(agent)) {
+    return agent;
+  }
+
+  const upgradedAgent: SELAgentCard = {
+    ...agent,
+    ingestionSource: 'manual-upload',
+  };
+  await saveApprovedAgent(upgradedAgent);
+  return upgradedAgent;
+}
+
+export async function purgeLegacyCatalogAgents(): Promise<string[]> {
+  const catalog = await parseHashValues<SELAgentCard>(LIVE_AGENTS_HASH_KEY);
+  const removedIds: string[] = [];
+
+  for (const agent of catalog) {
+    if (isManualUploadedAgent(agent)) {
+      if (!agent.ingestionSource) {
+        await hydrateLegacyManualAgent(agent);
+      }
+      continue;
+    }
+
+    removedIds.push(agent['agent id']);
+    await redis.hdel(LIVE_AGENTS_HASH_KEY, agent['agent id']);
+    await removeVectorRecord(agent['agent id']);
+  }
+
+  return removedIds;
+}
+
 export async function getAllAgents(): Promise<SELAgentCard[]> {
-  return parseHashValues<SELAgentCard>(LIVE_AGENTS_HASH_KEY);
+  await purgeLegacyCatalogAgents();
+  const agents = await parseHashValues<SELAgentCard>(LIVE_AGENTS_HASH_KEY);
+  return agents.filter((agent) => isAgentActive(agent) && isManualUploadedAgent(agent));
+}
+
+export async function getAllCatalogAgents(): Promise<SELAgentCard[]> {
+  await purgeLegacyCatalogAgents();
+  const agents = await parseHashValues<SELAgentCard>(LIVE_AGENTS_HASH_KEY);
+  return agents.filter(isManualUploadedAgent);
 }
 
 export async function getAgentById(agentId: string): Promise<SELAgentCard | null> {
@@ -167,6 +217,22 @@ export async function markAgentRejected(
 export async function deleteAgent(agentId: string): Promise<boolean> {
   const result = await redis.hdel(LIVE_AGENTS_HASH_KEY, agentId);
   return result > 0;
+}
+
+export async function setAgentActiveState(agentId: string, isActive: boolean): Promise<SELAgentCard | null> {
+  const agent = await getAgentById(agentId);
+  if (!agent) {
+    return null;
+  }
+
+  const updatedAgent: SELAgentCard = {
+    ...agent,
+    isActive,
+    inactiveAt: isActive ? undefined : new Date().toISOString(),
+  };
+
+  await saveApprovedAgent(updatedAgent);
+  return updatedAgent;
 }
 
 export async function getAgentCount(): Promise<number> {

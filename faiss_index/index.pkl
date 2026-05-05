@@ -1,20 +1,38 @@
 {
-  "secure-code-guard": {
-    "id": "secure-code-guard",
-    "kind": "agent",
-    "name": "Cyber Armor Guard",
-    "version": "2.1.0",
-    "status": "verified",
-    "index": 0,
-    "updatedAt": "2026-04-29T09:06:48.907Z"
-  },
   "release-readiness-radar": {
     "id": "release-readiness-radar",
     "kind": "agent",
     "name": "Release Readiness Radar",
     "version": "1.4.0",
     "status": "verified",
-    "index": 1,
+    "index": 0,
     "updatedAt": "2026-04-29T10:50:42.023Z"
+  },
+  "observability-signal-watch": {
+    "id": "observability-signal-watch",
+    "kind": "agent",
+    "name": "Observability Signal Watch",
+    "version": "1.2.3",
+    "status": "verified",
+    "index": 1,
+    "updatedAt": "2026-05-05T07:02:57.392Z"
+  },
+  "java-api-docs-generator": {
+    "id": "java-api-docs-generator",
+    "kind": "agent",
+    "name": "Java API Docs Generator",
+    "version": "1.0.0",
+    "status": "verified",
+    "index": 2,
+    "updatedAt": "2026-05-05T10:05:19.575Z"
+  },
+  "java-backend-code-generator": {
+    "id": "java-backend-code-generator",
+    "kind": "agent",
+    "name": "Java Backend Code Generator",
+    "version": "1.0.0",
+    "status": "verified",
+    "index": 3,
+    "updatedAt": "2026-05-05T10:06:12.976Z"
   }
 }

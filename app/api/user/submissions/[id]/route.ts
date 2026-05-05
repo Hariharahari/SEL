@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withAuth } from '@/lib/withAuth';
 import { getSubmissionById } from '@/lib/agentStore';
 import { submitAgent } from '@/lib/agentWorkflow';
-import { buildSkillPayloadFromFormData, normalizeSkillUploadPayload } from '@/lib/skillCard';
+import {
+  buildSkillPayloadFromFormData,
+  buildSkillPayloadFromJsonText,
+  normalizeSkillUploadPayload,
+} from '@/lib/skillCard';
 import { saveSubmissionFiles } from '@/lib/submissionFiles';
 
 export const PATCH = withAuth(async (request: NextRequest, { user, params }) => {
@@ -23,7 +27,11 @@ export const PATCH = withAuth(async (request: NextRequest, { user, params }) => 
       attachments = formData
         .getAll('attachments')
         .filter((entry): entry is File => entry instanceof File && entry.size > 0);
-      body = buildSkillPayloadFromFormData(formData);
+      const jsonPayload = formData.get('jsonPayload');
+      body =
+        typeof jsonPayload === 'string' && jsonPayload.trim()
+          ? buildSkillPayloadFromJsonText(jsonPayload)
+          : buildSkillPayloadFromFormData(formData);
     } else {
       body = await request.json();
     }

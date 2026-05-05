@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withAuth } from '@/lib/withAuth';
 import { submitAgent } from '@/lib/agentWorkflow';
 import { ensurePortalUser } from '@/lib/userSync';
-import { buildSkillPayloadFromFormData, normalizeSkillUploadPayload } from '@/lib/skillCard';
+import {
+  buildSkillPayloadFromFormData,
+  buildSkillPayloadFromJsonText,
+  normalizeSkillUploadPayload,
+} from '@/lib/skillCard';
 import { saveSubmissionFiles } from '@/lib/submissionFiles';
 
 export const POST = withAuth(async (request: NextRequest, { user }) => {
@@ -25,7 +29,11 @@ export const POST = withAuth(async (request: NextRequest, { user }) => {
         );
       }
 
-      body = buildSkillPayloadFromFormData(formData);
+      const jsonPayload = formData.get('jsonPayload');
+      body =
+        typeof jsonPayload === 'string' && jsonPayload.trim()
+          ? buildSkillPayloadFromJsonText(jsonPayload)
+          : buildSkillPayloadFromFormData(formData);
     } else {
       body = await request.json();
     }

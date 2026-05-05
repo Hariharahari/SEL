@@ -13,6 +13,7 @@ export const GET = withAuth(async (_req, { user }) => {
     user_id:              user.user_id,
     email:                user.email,
     role:                 user.role,
+    name:                 user.name,
     must_change_password: user.must_change_password,
     password_expired:     user.password_expired,
     created_at:           user.created_at,

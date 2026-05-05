@@ -7,6 +7,7 @@ import {
   ChevronDown,
   ChevronRight,
   FolderOpen,
+  History,
   LogIn,
   LogOut,
   Menu,
@@ -41,16 +42,29 @@ export default function AppShell({ children }: AppShellProps) {
   const [isProfileExpanded, setIsProfileExpanded] = useState(false);
 
   const hideShell = pathname ? PUBLIC_ROUTES.has(pathname) : false;
+  const isProtectedRoute =
+    Boolean(pathname) && pathname !== '/' && !PUBLIC_ROUTES.has(pathname) && !pathname?.startsWith('/api');
 
   const navItems = useMemo(
     () => [
       { href: '/agents', label: 'Directory', icon: FolderOpen },
       { href: '/upload', label: 'Upload', icon: Upload },
+      { href: '/submissions', label: 'My Submissions', icon: History },
+      ...(String(user?.role || '').toUpperCase() === 'ADMIN'
+        ? [{ href: '/admin/analytics', label: 'Admin Analytics', icon: Shield }]
+        : []),
     ],
-    []
+    [user?.role]
   );
 
-  const pageTitle = pathname === '/upload' ? 'Upload' : pathname?.startsWith('/admin') ? 'Admin' : 'Directory';
+  const pageTitle =
+    pathname === '/upload'
+      ? 'Upload'
+      : pathname === '/submissions'
+        ? 'My Submissions'
+        : pathname?.startsWith('/admin')
+          ? 'Admin'
+          : 'Directory';
 
   const handleLogout = async () => {
     await logout();
@@ -73,8 +87,25 @@ export default function AppShell({ children }: AppShellProps) {
     };
   }, [hideShell, isAuthenticated, logout, router]);
 
+  useEffect(() => {
+    if (!isProtectedRoute || authLoading) return;
+    if (!isAuthenticated) {
+      router.replace('/login');
+    }
+  }, [authLoading, isAuthenticated, isProtectedRoute, router]);
+
   if (hideShell) {
     return <>{children}</>;
+  }
+
+  if (isProtectedRoute && (authLoading || !isAuthenticated)) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-bg-primary">
+        <div className="rounded-2xl border border-border bg-bg-secondary px-6 py-4 text-sm text-text-secondary">
+          Checking your session...
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -227,19 +258,6 @@ export default function AppShell({ children }: AppShellProps) {
                     <User className="h-4 w-4 text-text-muted" />
                     Profile
                   </button>
-                  {String(user?.role || '').toUpperCase() === 'ADMIN' && (
-                    <button
-                      type="button"
-                      className="flex w-full items-center gap-3 px-4 py-2 text-sm text-text-primary transition-colors hover:bg-bg-tertiary"
-                      onClick={() => {
-                        setIsProfileExpanded(false);
-                        router.push('/admin/analytics');
-                      }}
-                    >
-                      <Shield className="h-4 w-4 text-text-muted" />
-                      Admin Analytics
-                    </button>
-                  )}
                   <button
                     type="button"
                     disabled={authLoading}

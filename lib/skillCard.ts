@@ -1,5 +1,7 @@
 import type { SELAgentCard, SkillCardPayload, SkillUploadEnvelope } from '@/types';
 
+export const SKILL_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
 function isObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
@@ -22,6 +24,12 @@ export function normalizeSkillUploadPayload(payload: unknown): {
     throw new Error('Missing or invalid "skill_card.starterkit_id" field.');
   }
 
+  if (!SKILL_ID_PATTERN.test(raw.starterkit_id.trim())) {
+    throw new Error(
+      'Skill ID must use lowercase letters, numbers, and hyphens only. Spaces are not allowed.'
+    );
+  }
+
   if (typeof raw.name !== 'string' || !raw.name.trim()) {
     throw new Error('Missing or invalid "skill_card.name" field.');
   }
@@ -32,6 +40,10 @@ export function normalizeSkillUploadPayload(payload: unknown): {
 
   if (!isObject(raw.origin) || typeof raw.origin.org !== 'string' || !raw.origin.org.trim()) {
     throw new Error('Missing or invalid "skill_card.origin.org" field.');
+  }
+
+  if (typeof raw.origin.creator !== 'string' || !raw.origin.creator.trim()) {
+    throw new Error('Missing or invalid "skill_card.origin.creator" field.');
   }
 
   if (!Array.isArray(raw.maintainers)) {
@@ -139,6 +151,14 @@ export function normalizeSkillUploadPayload(payload: unknown): {
 
 export function wrapSkillCard(skillCard: SkillCardPayload): SkillUploadEnvelope {
   return { skill_card: skillCard };
+}
+
+export function buildSkillPayloadFromJsonText(jsonText: string) {
+  try {
+    return JSON.parse(jsonText);
+  } catch {
+    throw new Error('Skill JSON is invalid.');
+  }
 }
 
 function splitList(value: FormDataEntryValue | null) {

@@ -4,8 +4,10 @@ import redis from '@/lib/redis';
 import {
   getAgentById,
   getAllAgents,
+  getAllCatalogAgents,
   getPendingAgentById,
   getPendingAgents,
+  purgeLegacyCatalogAgents,
   getReviewedAgents,
   markAgentApproved,
   markAgentRejected,
@@ -16,6 +18,7 @@ import { generateEmbedding } from './embeddings';
 import { generateAgentAnalysis, hasNvidiaAccess, suggestAgentCategory } from './nvidia';
 import { removeVectorRecord, searchVectorIndex, upsertVectorRecord } from './faiss';
 import { publishSkillFilesToGithub } from './githubSkills';
+import { calculateTrendDelta } from './trending';
 
 function startOfDaysAgo(days: number) {
   const date = new Date();
@@ -37,6 +40,16 @@ export function buildAgentEmbeddingText(agent: SELAgentCard) {
     `Tasks: ${agent.tasks.map((task) => `${task.name} - ${task.description}`).join('; ')}`,
     `Documentation: ${agent.documentation.readme} ${agent.documentation.howto} ${agent.documentation.changelog || ''}`,
   ].join('\n');
+}
+
+function getDemoVideoAttachment(agent: SELAgentCard) {
+  return (
+    agent.sourceFiles?.find(
+      (file) =>
+        file.mimeType.toLowerCase().startsWith('video/') ||
+        file.name.toLowerCase().endsWith('.mp4')
+    ) || null
+  );
 }
 
 async function getAgentDownloadStats(agentId: string, version: string): Promise<Downloads> {
@@ -111,6 +124,7 @@ export async function approveAgent(agentId: string, approvedBy: string, reviewCo
     generateAgentAnalysis(pending.agent, statsForAnalysis),
     suggestAgentCategory(pending.agent),
   ]);
+  await purgeLegacyCatalogAgents();
   const publishedRepo = await publishSkillFilesToGithub(
     pending.agent['agent id'],
     pending.agent.sourceFiles
@@ -123,6 +137,14 @@ export async function approveAgent(agentId: string, approvedBy: string, reviewCo
     categoryOverride: suggestedCategory.category,
     subcategoryOverride: suggestedCategory.subcategory,
     github_url: publishedRepo.published ? publishedRepo.url : undefined,
+    ingestionSource: 'manual-upload',
+    isActive: true,
+    inactiveAt: undefined,
+    video_url: getDemoVideoAttachment(pending.agent)
+      ? `/api/agents/${pending.agent['agent id']}/files?path=${encodeURIComponent(
+          getDemoVideoAttachment(pending.agent)!.relativePath
+        )}`
+      : pending.agent.video_url,
   };
 
   await upsertVectorRecord({
@@ -220,16 +242,37 @@ export async function semanticSearchAgents(query: string, limit = 12) {
     .map((agent) => ({ agent, similarity: 0.4 }));
 }
 
+export async function getTrendingAgents(limit = 6): Promise<SELAgentCard[]> {
+  const approvedAgents = await getAllAgents();
+  const withStats = await Promise.all(approvedAgents.map((agent) => syncAgentDownloads(agent)));
+
+  return withStats
+    .sort((left, right) => {
+      const rightOverall = right.downloads?.total_download_overall || 0;
+      const leftOverall = left.downloads?.total_download_overall || 0;
+      if (rightOverall !== leftOverall) {
+        return rightOverall - leftOverall;
+      }
+
+      const rightWeekly = right.downloads?.total_download_7_days || 0;
+      const leftWeekly = left.downloads?.total_download_7_days || 0;
+      return rightWeekly - leftWeekly;
+    })
+    .slice(0, limit);
+}
+
 export async function getAgentAnalytics() {
-  const [approvedAgents, pendingAgents, reviewedAgents] = await Promise.all([
-    getAllAgents(),
+  const [catalogAgents, pendingAgents, reviewedAgents] = await Promise.all([
+    getAllCatalogAgents(),
     getPendingAgents(),
     getReviewedAgents(),
   ]);
 
-  const approvedWithStats = await Promise.all(approvedAgents.map((agent) => syncAgentDownloads(agent)));
+  const approvedWithStats = await Promise.all(catalogAgents.map((agent) => syncAgentDownloads(agent)));
+  const activeAgents = approvedWithStats.filter((agent) => agent.isActive !== false);
+  const inactiveAgents = approvedWithStats.filter((agent) => agent.isActive === false);
 
-  const totals = approvedWithStats.reduce(
+  const totals = activeAgents.reduce(
     (accumulator, agent) => {
       accumulator.totalDownloads += agent.downloads?.total_download_overall || 0;
       accumulator.last7Days += agent.downloads?.total_download_7_days || 0;
@@ -241,7 +284,8 @@ export async function getAgentAnalytics() {
 
   return {
     summary: {
-      approved: approvedWithStats.length,
+      approved: activeAgents.length,
+      inactive: inactiveAgents.length,
       pending: pendingAgents.length,
       rejected: reviewedAgents.filter((record) => record.status === 'rejected').length,
       totalDownloads: totals.totalDownloads,
@@ -249,7 +293,8 @@ export async function getAgentAnalytics() {
       downloadsLast30Days: totals.last30Days,
     },
     pending: pendingAgents,
-    approved: approvedWithStats,
+    approved: activeAgents,
+    inactive: inactiveAgents,
     reviewed: reviewedAgents,
   };
 }
@@ -341,11 +386,21 @@ export async function getAgentAnalyticsDetail(agentId: string) {
   };
 }
 
-export async function getAdminHistory(kind: 'approved' | 'pending' | 'rejected' | 'downloads') {
+export async function getAdminHistory(kind: 'approved' | 'inactive' | 'pending' | 'rejected' | 'downloads') {
   if (kind === 'approved') {
     const approved = await getAllAgents();
     return Promise.all(
       approved.map(async (agent) => ({
+        agent: await syncAgentDownloads(agent),
+      }))
+    );
+  }
+
+  if (kind === 'inactive') {
+    const catalog = await getAllCatalogAgents();
+    const inactive = catalog.filter((agent) => agent.isActive === false);
+    return Promise.all(
+      inactive.map(async (agent) => ({
         agent: await syncAgentDownloads(agent),
       }))
     );

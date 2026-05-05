@@ -1,8 +1,10 @@
 'use client';
 
 import Link from 'next/link';
+import { ArrowDownRight, ArrowRight, ArrowUpRight } from 'lucide-react';
 import { SELAgentCard } from '@/types';
 import DownloadButton from './DownloadButton';
+import { calculateTrendDelta, getTrendDirection } from '@/lib/trending';
 
 interface AgentCardProps {
   agent: SELAgentCard;
@@ -21,6 +23,8 @@ const statusColors: Record<string, { bg: string; text: string }> = {
 
 export default function AgentCard({ agent, category, subcategory }: AgentCardProps) {
   const statusColor = statusColors[agent.status] || statusColors.stable;
+  const trendDirection = getTrendDirection(agent);
+  const trendDelta = calculateTrendDelta(agent);
 
   const categoryColors: Record<string, string> = {
     Frontend: 'bg-info/10 text-info',
@@ -36,6 +40,20 @@ export default function AgentCard({ agent, category, subcategory }: AgentCardPro
   };
 
   const categoryColor = category ? categoryColors[category] || 'bg-bg-tertiary text-text-primary' : '';
+  const TrendIcon =
+    trendDirection === 'up' ? ArrowUpRight : trendDirection === 'down' ? ArrowDownRight : ArrowRight;
+  const trendLabel =
+    trendDirection === 'up'
+      ? `Up ${Math.abs(trendDelta)}% vs monthly pace`
+      : trendDirection === 'down'
+        ? `Down ${Math.abs(trendDelta)}% vs monthly pace`
+        : 'Flat vs monthly pace';
+  const trendColor =
+    trendDirection === 'up'
+      ? 'text-success'
+      : trendDirection === 'down'
+        ? 'text-error'
+        : 'text-text-muted';
 
   return (
     <Link href={`/agents/${agent['agent id']}`}>
@@ -83,7 +101,17 @@ export default function AgentCard({ agent, category, subcategory }: AgentCardPro
 
         {agent.downloads && (
           <div className="mt-4 border-t border-border pt-4 text-xs text-text-secondary">
-            <p>{agent.downloads.total_download_overall.toLocaleString()} total downloads</p>
+            <div className="flex items-center justify-between gap-3">
+              <p>{agent.downloads.total_download_overall.toLocaleString()} total downloads</p>
+              <span className={`inline-flex items-center gap-1 font-medium ${trendColor}`}>
+                <TrendIcon className="h-3.5 w-3.5" />
+                {trendLabel}
+              </span>
+            </div>
+            <p className="mt-2 text-text-muted">
+              {agent.downloads.total_download_7_days.toLocaleString()} in 7 days •{' '}
+              {agent.downloads.total_download_30_days.toLocaleString()} in 30 days
+            </p>
           </div>
         )}
 

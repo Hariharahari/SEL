@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SEL Ignite Data Model Diagrams</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #151515;
+      --panel: #1f1f1f;
+      --panel-2: #232323;
+      --border: rgba(255, 255, 255, 0.12);
+      --line: rgba(255, 255, 255, 0.22);
+      --text: #f3efe7;
+      --muted: #b6aea2;
+      --accent: #1f8fff;
+      --accent-2: #7e63ff;
+      --success: #27c48a;
+      --shadow: 0 22px 50px -28px rgba(0, 0, 0, 0.7);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Inter, "Segoe UI", Arial, sans-serif;
+      background:
+        radial-gradient(circle at top, rgba(31, 143, 255, 0.1), transparent 32%),
+        linear-gradient(180deg, #1b1a19 0%, #141414 100%);
+      color: var(--text);
+    }
+
+    .page {
+      max-width: 1500px;
+      margin: 0 auto;
+      padding: 36px 28px 64px;
+    }
+
+    .hero {
+      margin-bottom: 28px;
+    }
+
+    .hero h1 {
+      margin: 0;
+      font-size: 34px;
+      line-height: 1.1;
+    }
+
+    .hero p {
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 16px;
+    }
+
+    .diagram-section {
+      margin-top: 34px;
+      padding: 26px;
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)),
+        var(--panel);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .diagram-section h2 {
+      margin: 0 0 8px;
+      font-size: 26px;
+    }
+
+    .diagram-section p {
+      margin: 0 0 24px;
+      color: var(--muted);
+    }
+
+    .canvas {
+      position: relative;
+      min-height: 860px;
+      border-radius: 18px;
+      border: 1px solid rgba(255,255,255,0.06);
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.015), rgba(255,255,255,0)),
+        var(--panel-2);
+      overflow: hidden;
+    }
+
+    .canvas.redis {
+      min-height: 780px;
+    }
+
+    .entity {
+      position: absolute;
+      width: 330px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: rgba(16, 16, 16, 0.72);
+      box-shadow: 0 18px 34px -30px rgba(31, 143, 255, 0.6);
+      overflow: hidden;
+      backdrop-filter: blur(8px);
+    }
+
+    .entity.small {
+      width: 300px;
+    }
+
+    .entity-title {
+      padding: 14px 18px;
+      text-align: center;
+      font-weight: 700;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(90deg, rgba(31,143,255,0.14), rgba(126,99,255,0.1));
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    td {
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      border-right: 1px solid rgba(255,255,255,0.08);
+      vertical-align: top;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    td:last-child {
+      border-right: none;
+      text-align: center;
+      white-space: nowrap;
+      color: #d7cfbf;
+    }
+
+    td.type {
+      width: 74px;
+      color: #9ac6ff;
+      white-space: nowrap;
+    }
+
+    td.field {
+      width: auto;
+    }
+
+    td.key {
+      width: 76px;
+      font-weight: 600;
+    }
+
+    .legend-label {
+      position: absolute;
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      color: var(--muted);
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .svg-layer {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    .notes {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+      margin-top: 20px;
+    }
+
+    .note {
+      padding: 16px 18px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: rgba(255,255,255,0.03);
+    }
+
+    .note strong {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--text);
+    }
+
+    .note span {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 4px;
+      margin-right: 8px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(31, 143, 255, 0.24);
+      background: rgba(31, 143, 255, 0.08);
+      color: #a8d2ff;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    @media (max-width: 1200px) {
+      .canvas,
+      .canvas.redis {
+        min-height: auto;
+        padding: 18px;
+      }
+
+      .entity,
+      .entity.small,
+      .legend-label {
+        position: static;
+        width: 100%;
+        margin-bottom: 18px;
+      }
+
+      .svg-layer {
+        display: none;
+      }
+
+      .notes {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="hero">
+      <h1>SEL Ignite Data Model</h1>
+      <p>Visual reference for the current PostgreSQL/Prisma schema and Redis storage layout used by the review, directory, and download workflows.</p>
+    </div>
+
+    <section class="diagram-section">
+      <h2>Prisma ER Diagram</h2>
+      <p>PostgreSQL is the source of truth for users, download history, feedback, and maintainer assignments.</p>
+
+      <div class="canvas">
+        <svg class="svg-layer" viewBox="0 0 1400 860" preserveAspectRatio="none" aria-hidden="true">
+          <defs>
+            <marker id="crowd-open" viewBox="0 0 18 18" refX="16" refY="9" markerWidth="14" markerHeight="14" orient="auto">
+              <path d="M1 1 L9 9 L1 17" fill="none" stroke="rgba(255,255,255,0.32)" stroke-width="1.5"/>
+              <path d="M8 1 L16 9 L8 17" fill="none" stroke="rgba(255,255,255,0.32)" stroke-width="1.5"/>
+            </marker>
+          </defs>
+          <path d="M700 242 C520 320 410 402 250 544" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="2"/>
+          <path d="M700 242 C690 332 690 390 690 528" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="2"/>
+          <path d="M700 242 C890 326 1040 410 1178 544" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="2"/>
+          <path d="M700 242 C972 322 1108 380 1240 542" fill="none" stroke="rgba(255,255,255,0.16)" stroke-width="2"/>
+        </svg>
+
+        <div class="legend-label" style="left: 140px; top: 476px;">downloads</div>
+        <div class="legend-label" style="left: 652px; top: 480px;">leaves</div>
+        <div class="legend-label" style="left: 1088px; top: 474px;">maintains</div>
+        <div class="legend-label" style="left: 1180px; top: 470px;">assigns</div>
+
+        <div class="entity" style="left: 530px; top: 54px;">
+          <div class="entity-title">User</div>
+          <table>
+            <tr><td class="type">string</td><td class="field">id</td><td class="key">PK</td></tr>
+            <tr><td class="type">string</td><td class="field">email</td><td class="key">UK</td></tr>
+            <tr><td class="type">string</td><td class="field">role</td><td class="key"></td></tr>
+            <tr><td class="type">string</td><td class="field">businessGroup</td><td class="key"></td></tr>
+            <tr><td class="type">string</td><td class="field">IOU</td><td class="key"></td></tr>
+            <tr><td class="type">string</td><td class="field">account</td><td class="key"></td></tr>
+            <tr><td class="type">boolean</td><td class="field">mustChangePassword</td><td class="key"></td></tr>
+            <tr><td class="type">datetime</td><td class="field">createdAt</td><td class="key"></td></tr>
+            <tr><td class="type">datetime</td><td class="field">updatedAt</td><td class="key"></td></tr>
+          </table>
+        </div>
+
+        <div class="entity small" style="left: 40px; top: 532px;">
+          <div class="entity-title">SkillDownload</div>
+          <table>
+            <tr><td class="type">string</td><td class="field">skillId</td><td class="key">PK</td></tr>
+            <tr><td class="type">string</td><td class="field">version</td><td class="key">PK</td></tr>
+            <tr><td class="type">string</td><td class="field">userId</td><td class="key">PK, FK</td></tr>
+            <tr><td class="type">string</td><td class="field">purpose</td><td class="key"></td></tr>
+            <tr><td class="type">datetime</td><td class="field">downloadedAt</td><td class="key"></td></tr>
+          </table>
+        </div>
+
+        <div class="entity small" style="left: 525px; top: 518px;">
+          <div class="entity-title">SkillFeedback</div>
+          <table>
+            <tr><td class="type">string</td><td class="field">skillId</td><td class="key">PK</td></tr>
+            <tr><td class="type">string</td><td class="field">version</td><td class="key">PK</td></tr>
+            <tr><td class="type">string</td><td class="field">userId</td><td class="key">PK, FK</td></tr>
+            <tr><td class="type">int</td><td class="field">rating</td><td class="key"></td></tr>
+            <tr><td class="type">string</td><td class="field">feedback</td><td class="key"></td></tr>
+            <tr><td class="type">datetime</td><td class="field">createdAt</td><td class="key"></td></tr>
+          </table>
+        </div>
+
+        <div class="entity small" style="left: 1000px; top: 516px;">
+          <div class="entity-title">SkillMaintainer</div>
+          <table>
+            <tr><td class="type">string</td><td class="field">skillId</td><td class="key">PK</td></tr>
+            <tr><td class="type">string</td><td class="field">userId</td><td class="key">PK, FK</td></tr>
+            <tr><td class="type">datetime</td><td class="field">assignedAt</td><td class="key"></td></tr>
+            <tr><td class="type">string</td><td class="field">assignedById</td><td class="key">FK</td></tr>
+          </table>
+        </div>
+      </div>
+
+      <div class="notes">
+        <div class="note">
+          <strong>User</strong>
+          <span>Stores the synced central-auth identity plus portal-specific attributes like business group, IOU, and account.</span>
+        </div>
+        <div class="note">
+          <strong>SkillDownload + SkillFeedback</strong>
+          <span>Attach usage analytics and qualitative feedback back to a specific user and skill version.</span>
+        </div>
+        <div class="note">
+          <strong>SkillMaintainer</strong>
+          <span>Represents ownership assignments, including who assigned the maintainer for a given skill.</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="diagram-section">
+      <h2>Redis Data Layout</h2>
+      <p>Redis holds live approved skills, pending review submissions, and reviewed history for the operational workflow.</p>
+
+      <div class="canvas redis">
+        <svg class="svg-layer" viewBox="0 0 1400 780" preserveAspectRatio="none" aria-hidden="true">
+          <path d="M364 156 C494 156 564 170 650 246" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="2"/>
+          <path d="M364 390 C500 390 568 380 650 306" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="2"/>
+          <path d="M1032 156 C930 164 862 180 754 248" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="2"/>
+          <path d="M1032 390 C924 372 848 360 754 308" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="2"/>
+        </svg>
+
+        <div class="entity small" style="left: 46px; top: 72px;">
+          <div class="entity-title">agents_catalog</div>
+          <table>
+            <tr><td class="type">hash</td><td class="field">field</td><td class="key">skillId</td></tr>
+            <tr><td class="type">json</td><td class="field">value</td><td class="key">SELAgentCard</td></tr>
+          </table>
+        </div>
+
+        <div class="entity small" style="left: 46px; top: 304px;">
+          <div class="entity-title">agents_pending</div>
+          <table>
+            <tr><td class="type">hash</td><td class="field">field</td><td class="key">skillId</td></tr>
+            <tr><td class="type">json</td><td class="field">value</td><td class="key">AgentSubmissionRecord</td></tr>
+          </table>
+          <div style="padding: 12px 16px;">
+            <span class="chip">status = pending</span>
+          </div>
+        </div>
+
+        <div class="entity" style="left: 530px; top: 168px;">
+          <div class="entity-title">AgentSubmissionRecord</div>
+          <table>
+            <tr><td class="type">json</td><td class="field">agent</td><td class="key">SELAgentCard</td></tr>
+            <tr><td class="type">string</td><td class="field">status</td><td class="key"></td></tr>
+            <tr><td class="type">datetime</td><td class="field">submittedAt</td><td class="key"></td></tr>
+            <tr><td class="type">string</td><td class="field">submittedBy</td><td class="key"></td></tr>
+            <tr><td class="type">string</td><td class="field">reviewComment</td><td class="key"></td></tr>
+            <tr><td class="type">datetime</td><td class="field">approvedAt / rejectedAt</td><td class="key"></td></tr>
+            <tr><td class="type">string</td><td class="field">approvedBy / rejectedBy</td><td class="key"></td></tr>
+            <tr><td class="type">string</td><td class="field">rejectionReason</td><td class="key"></td></tr>
+            <tr><td class="type">string</td><td class="field">embeddingProvider</td><td class="key"></td></tr>
+            <tr><td class="type">json</td><td class="field">analysis</td><td class="key">AgentAnalysis</td></tr>
+          </table>
+        </div>
+
+        <div class="entity small" style="left: 1054px; top: 72px;">
+          <div class="entity-title">agents_reviewed</div>
+          <table>
+            <tr><td class="type">hash</td><td class="field">field</td><td class="key">skillId</td></tr>
+            <tr><td class="type">json</td><td class="field">value</td><td class="key">AgentSubmissionRecord</td></tr>
+          </table>
+          <div style="padding: 12px 16px;">
+            <span class="chip">status = approved / rejected</span>
+          </div>
+        </div>
+
+        <div class="entity small" style="left: 1054px; top: 304px;">
+          <div class="entity-title">SELAgentCard</div>
+          <table>
+            <tr><td class="type">string</td><td class="field">agent id</td><td class="key"></td></tr>
+            <tr><td class="type">string</td><td class="field">name / description</td><td class="key"></td></tr>
+            <tr><td class="type">json</td><td class="field">origin / maintainers</td><td class="key"></td></tr>
+            <tr><td class="type">json</td><td class="field">technology / specialization / tasks</td><td class="key"></td></tr>
+            <tr><td class="type">json</td><td class="field">documentation / harness</td><td class="key"></td></tr>
+            <tr><td class="type">json</td><td class="field">downloads / analysis</td><td class="key"></td></tr>
+            <tr><td class="type">json</td><td class="field">sourceFiles</td><td class="key"></td></tr>
+          </table>
+        </div>
+      </div>
+
+      <div class="notes">
+        <div class="note">
+          <strong>Approved catalog</strong>
+          <span>`agents_catalog` is the live directory surface. Only approved skills land here after the workflow completes.</span>
+        </div>
+        <div class="note">
+          <strong>Pending + reviewed history</strong>
+          <span>`agents_pending` and `agents_reviewed` track approval state, review timestamps, rejection reasons, and analysis metadata.</span>
+        </div>
+        <div class="note">
+          <strong>Record granularity</strong>
+          <span>Redis stores whole JSON records keyed by skill ID, which keeps the review workflow fast and simple to read from the app layer.</span>
+        </div>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

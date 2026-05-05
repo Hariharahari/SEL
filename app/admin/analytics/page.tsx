@@ -15,6 +15,7 @@ import {
   PieChart,
   Shield,
   Sparkles,
+  Trash2,
   XCircle,
 } from 'lucide-react';
 import { authApi, tokenStorage } from '@/lib/auth';
@@ -31,6 +32,7 @@ interface PendingAgentRecord {
 interface AnalyticsResponse {
   summary: {
     approved: number;
+    inactive: number;
     pending: number;
     rejected: number;
     totalDownloads: number;
@@ -38,6 +40,7 @@ interface AnalyticsResponse {
     downloadsLast30Days: number;
   };
   approved: SELAgentCard[];
+  inactive: SELAgentCard[];
 }
 
 function StatusDonut({
@@ -63,7 +66,7 @@ function StatusDonut({
           }%, #f87171 ${approvedPct + pendingPct}% 100%)`,
         }}
       />
-      <div className="absolute inset-[16px] rounded-full border border-white/10 bg-[#1f1f1f]" />
+      <div className="absolute inset-[16px] rounded-full border border-border bg-bg-primary" />
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-4xl font-semibold text-text-primary">{total}</span>
         <span className="mt-1 text-xs uppercase tracking-[0.22em] text-text-muted">skills</span>
@@ -228,12 +231,39 @@ export default function AdminAnalyticsPage() {
     }
   };
 
+  const handleDeleteApproved = async (skillId: string, skillName: string) => {
+    const confirmed = window.confirm(
+      `Mark the approved skill "${skillName}" as inactive and remove it from the live directory?`
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/admin/agents/${skillId}`, {
+        method: 'DELETE',
+        headers,
+        credentials: 'include',
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.error || 'Failed to mark approved skill inactive');
+      }
+      await loadData();
+    } catch (deleteError) {
+      setError(
+        deleteError instanceof Error ? deleteError.message : 'Failed to mark approved skill inactive'
+      );
+    }
+  };
+
   if (isLoading) {
     return <div className="sel-page p-6 text-sm text-text-secondary">Loading admin analytics...</div>;
   }
 
   const summary = analytics?.summary || {
     approved: 0,
+    inactive: 0,
     pending: 0,
     rejected: 0,
     totalDownloads: 0,
@@ -244,7 +274,7 @@ export default function AdminAnalyticsPage() {
   return (
     <div className="sel-page p-6">
       <div className="sel-shell space-y-6">
-        <section className="overflow-hidden rounded-[28px] border border-white/8 bg-[linear-gradient(135deg,rgba(38,38,38,0.98),rgba(30,30,30,0.98))] p-8 shadow-[0_0_50px_-30px_rgba(25,145,230,0.55)]">
+        <section className="overflow-hidden rounded-[28px] border border-border bg-[linear-gradient(135deg,color-mix(in_srgb,var(--bg-secondary)_96%,transparent),color-mix(in_srgb,var(--bg-primary)_100%,transparent))] p-8 shadow-[0_0_50px_-30px_rgba(25,145,230,0.25)]">
           <div className="flex flex-wrap items-start justify-between gap-6">
             <div className="max-w-3xl">
               <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-primary">
@@ -256,7 +286,7 @@ export default function AdminAnalyticsPage() {
                 Review the live skill catalog, approval flow, and usage patterns in one visual workspace.
               </p>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-text-secondary">
+            <div className="rounded-2xl border border-border bg-bg-primary/70 px-4 py-3 text-sm text-text-secondary">
               <div className="flex items-center gap-2">
                 <Shield className="h-4 w-4 text-primary" />
                 Central-auth protected
@@ -271,7 +301,7 @@ export default function AdminAnalyticsPage() {
           )}
 
           <div className="mt-8 grid gap-6 xl:grid-cols-[0.92fr_1.08fr]">
-            <div className="rounded-[24px] border border-white/8 bg-black/15 p-6">
+            <div className="rounded-[24px] border border-border bg-bg-primary/70 p-6">
               <div className="flex items-center gap-2">
                 <PieChart className="h-4 w-4 text-primary" />
                 <h2 className="text-lg font-semibold text-text-primary">Approval Mix</h2>
@@ -284,13 +314,14 @@ export default function AdminAnalyticsPage() {
                 />
                 <div className="grid flex-1 gap-3">
                   {[
-                    { label: 'Approved', value: summary.approved, icon: CheckCircle2, color: 'text-success' },
-                    { label: 'Pending', value: summary.pending, icon: Clock3, color: 'text-warning' },
-                    { label: 'Rejected', value: summary.rejected, icon: XCircle, color: 'text-error' },
-                  ].map(({ label, value, icon: Icon, color }) => (
+                    { label: 'Approved', value: summary.approved, icon: CheckCircle2, color: 'text-success', href: '/admin/history/approved' },
+                    { label: 'Inactive', value: summary.inactive, icon: FolderOpen, color: 'text-text-secondary', href: '/admin/history/inactive' },
+                    { label: 'Pending', value: summary.pending, icon: Clock3, color: 'text-warning', href: '/admin/history/pending' },
+                    { label: 'Rejected', value: summary.rejected, icon: XCircle, color: 'text-error', href: '/admin/history/rejected' },
+                  ].map(({ label, value, icon: Icon, color, href }) => (
                     <Link
                       key={label}
-                      href={`/admin/history/${label.toLowerCase()}`}
+                      href={href}
                       className="flex items-center justify-between rounded-2xl border border-border bg-bg-primary/60 px-4 py-3 transition-all hover:border-primary"
                     >
                       <div className="flex items-center gap-3">
@@ -304,7 +335,7 @@ export default function AdminAnalyticsPage() {
               </div>
             </div>
 
-            <div className="rounded-[24px] border border-white/8 bg-black/15 p-6">
+            <div className="rounded-[24px] border border-border bg-bg-primary/70 p-6">
               <div className="flex items-center gap-2">
                 <BarChart3 className="h-4 w-4 text-primary" />
                 <h2 className="text-lg font-semibold text-text-primary">Download Momentum</h2>
@@ -337,7 +368,7 @@ export default function AdminAnalyticsPage() {
           <div className="mb-5 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <FolderOpen className="h-4 w-4 text-primary" />
-              <h2 className="text-lg font-semibold text-text-primary">Approved Skill Directory</h2>
+              <h2 className="text-lg font-semibold text-text-primary">Active Skill Directory</h2>
             </div>
             <span className="text-sm text-text-secondary">
               Page {approvedPage} of {approvedPageCount}
@@ -355,9 +386,8 @@ export default function AdminAnalyticsPage() {
               const progress = (overallDownloads / maxDownloads) * 100;
 
               return (
-                <Link
+                <div
                   key={agent['agent id']}
-                  href={`/admin/analytics/${agent['agent id']}`}
                   className="rounded-[24px] border border-border bg-bg-primary p-5 shadow-[0_0_24px_-22px_rgba(0,120,212,0.65)] transition-all duration-200 hover:border-primary hover:-translate-y-0.5"
                 >
                   <div className="flex items-start justify-between gap-3">
@@ -366,10 +396,31 @@ export default function AdminAnalyticsPage() {
                         <span className="sel-badge bg-primary/10 text-primary">{category}</span>
                         <span className="sel-badge bg-bg-tertiary text-text-secondary">{agent.status}</span>
                       </div>
-                      <h3 className="mt-4 text-lg font-semibold text-text-primary">{agent.name}</h3>
+                      <Link
+                        href={`/admin/analytics/${agent['agent id']}`}
+                        className="mt-4 block text-lg font-semibold text-text-primary transition-colors hover:text-primary"
+                      >
+                        {agent.name}
+                      </Link>
                       <p className="mt-1 text-sm text-text-secondary">{subcategory}</p>
                     </div>
-                    <BarChart3 className="h-5 w-5 text-primary" />
+                    <div className="flex items-center gap-2">
+                      <Link
+                        href={`/admin/analytics/${agent['agent id']}`}
+                        className="sel-button-ghost border border-border px-3 py-2 text-sm"
+                      >
+                        <BarChart3 className="h-4 w-4" />
+                        Analytics
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteApproved(agent['agent id'], agent.name)}
+                        className="sel-button-ghost border border-error/40 px-3 py-2 text-sm text-error hover:bg-error/10"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Inactive
+                      </button>
+                    </div>
                   </div>
 
                   <p className="mt-4 line-clamp-2 text-sm text-text-secondary">{agent.description}</p>
@@ -404,7 +455,7 @@ export default function AdminAnalyticsPage() {
                       </div>
                     </div>
                   </div>
-                </Link>
+                </div>
               );
             })}
           </div>
@@ -427,6 +478,42 @@ export default function AdminAnalyticsPage() {
               >
                 <ChevronRight className="h-4 w-4" />
               </button>
+            </div>
+          )}
+        </section>
+
+        <section className="rounded-[28px] border border-border bg-bg-secondary/85 p-6 shadow-[0_0_30px_-24px_rgba(100,116,139,0.18)]">
+          <div className="mb-5 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <FolderOpen className="h-4 w-4 text-text-secondary" />
+              <h2 className="text-lg font-semibold text-text-primary">Inactive Skills</h2>
+            </div>
+            <span className="text-sm text-text-secondary">{analytics?.inactive.length || 0} archived</span>
+          </div>
+
+          {(analytics?.inactive || []).length === 0 ? (
+            <div className="rounded-2xl border border-border bg-bg-primary p-5 text-sm text-text-secondary">
+              No inactive skills right now.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              {(analytics?.inactive || []).map((agent) => (
+                <div key={agent['agent id']} className="rounded-[24px] border border-border bg-bg-primary p-5 opacity-85">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="flex flex-wrap gap-2">
+                        <span className="sel-badge bg-bg-tertiary text-text-secondary">inactive</span>
+                        <span className="sel-badge bg-bg-tertiary text-text-secondary">{agent.status}</span>
+                      </div>
+                      <p className="mt-4 text-lg font-semibold text-text-primary">{agent.name}</p>
+                      <p className="mt-1 text-sm text-text-secondary">{agent.description}</p>
+                    </div>
+                    <span className="text-xs text-text-muted">
+                      {agent.inactiveAt ? new Date(agent.inactiveAt).toLocaleDateString() : 'archived'}
+                    </span>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </section>

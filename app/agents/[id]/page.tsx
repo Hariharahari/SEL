@@ -198,20 +198,30 @@ export default async function AgentDetailPage({ params }: AgentDetailPageProps) 
             {agent.video_url ? (
               <div className="overflow-hidden rounded-2xl border border-border bg-bg-secondary">
                 <div className="aspect-video">
-                  <iframe
-                    width="100%"
-                    height="100%"
-                    src={`${agent.video_url}${
-                      agent.video_url.includes('youtube.com') || agent.video_url.includes('youtu.be')
-                        ? '?rel=0'
-                        : ''
-                    }`}
-                    title={`${agent.name} demo video`}
-                    frameBorder="0"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                    className="h-full w-full"
-                  />
+                  {agent.video_url.includes('/api/agents/') || agent.video_url.endsWith('.mp4') ? (
+                    <video
+                      controls
+                      preload="metadata"
+                      className="h-full w-full bg-black object-contain"
+                    >
+                      <source src={agent.video_url} type="video/mp4" />
+                    </video>
+                  ) : (
+                    <iframe
+                      width="100%"
+                      height="100%"
+                      src={`${agent.video_url}${
+                        agent.video_url.includes('youtube.com') || agent.video_url.includes('youtu.be')
+                          ? '?rel=0'
+                          : ''
+                      }`}
+                      title={`${agent.name} demo video`}
+                      frameBorder="0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      className="h-full w-full"
+                    />
+                  )}
                 </div>
               </div>
             ) : (

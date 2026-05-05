@@ -3,8 +3,10 @@ import axios from "axios";
 import {
   ACCESS_COOKIE_NAME,
   REFRESH_COOKIE_NAME,
+  buildDummyAccessToken,
   getAuthErrorMessage,
   getCentralAuthUrl,
+  getDummyUserByToken,
 } from "@/lib/centralAuth";
 import { RefreshRequest } from "@/types/auth";
 
@@ -26,6 +28,25 @@ export async function POST(request: NextRequest) {
         { detail: "Missing refresh token", error: "ValidationError" },
         { status: 422 }
       );
+    }
+
+    const dummyUser = getDummyUserByToken(refreshToken);
+    if (dummyUser) {
+      const accessToken = buildDummyAccessToken(dummyUser.user_id);
+      const response = NextResponse.json({
+        access_token: accessToken,
+        token_type: "bearer",
+        expires_in: 60 * 60 * 12,
+      });
+
+      response.cookies.set(ACCESS_COOKIE_NAME, accessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        path: "/",
+        maxAge: 60 * 60 * 12,
+      });
+
+      return response;
     }
 
     const { data } = await axios.post(`${authUrl}/api/auth/refresh`, {

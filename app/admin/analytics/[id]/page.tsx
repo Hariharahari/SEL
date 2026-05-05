@@ -56,7 +56,7 @@ function FeedbackDonut({ distribution }: { distribution: Record<string, number> 
           }% ${pct5 + pct4 + pct3 + pct2}%, #f87171 ${pct5 + pct4 + pct3 + pct2}% 100%)`,
         }}
       />
-      <div className="absolute inset-[14px] rounded-full border border-white/10 bg-[#1f1f1f]" />
+      <div className="absolute inset-[14px] rounded-full border border-border bg-bg-primary" />
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-3xl font-semibold text-text-primary">{total}</span>
         <span className="text-xs uppercase tracking-[0.22em] text-text-muted">ratings</span>
@@ -182,30 +182,30 @@ export default function AdminAgentAnalyticsPage() {
 
   return (
     <div className="sel-page">
-      <section className="relative overflow-hidden bg-gradient-to-br from-[#242424] via-[#1f1f1f] to-[#171717] px-4 py-16 text-white">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(25,145,230,0.24),transparent_38%)]" />
+      <section className="relative overflow-hidden border-b border-border bg-[linear-gradient(135deg,color-mix(in_srgb,var(--bg-secondary)_96%,transparent),color-mix(in_srgb,var(--bg-primary)_100%,transparent))] px-4 py-16 text-text-primary">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(25,145,230,0.18),transparent_38%)]" />
         <div className="sel-shell relative z-10 max-w-6xl">
-          <Link href="/admin/analytics" className="inline-flex items-center gap-2 text-white/90 transition-colors hover:text-white">
+          <Link href="/admin/analytics" className="inline-flex items-center gap-2 text-text-secondary transition-colors hover:text-text-primary">
             <ArrowLeft className="h-4 w-4" />
             Back to Admin Analytics
           </Link>
           <div className="mt-6 flex flex-wrap items-start justify-between gap-5">
             <div className="max-w-3xl">
               <div className="flex flex-wrap gap-2">
-                <span className="sel-badge bg-white/15 text-white">{category}</span>
-                <span className="sel-badge bg-white/15 text-white">{agent.status}</span>
-                {subcategory && <span className="sel-badge bg-white/10 text-white/85">{subcategory}</span>}
+                <span className="sel-badge bg-primary/10 text-primary">{category}</span>
+                <span className="sel-badge bg-bg-tertiary text-text-primary">{agent.status}</span>
+                {subcategory && <span className="sel-badge bg-bg-tertiary text-text-secondary">{subcategory}</span>}
               </div>
               <h1 className="mt-6 text-5xl font-bold leading-tight">{agent.name}</h1>
-              <p className="mt-4 text-xl text-white/85">{agent.description}</p>
+              <p className="mt-4 text-xl text-text-secondary">{agent.description}</p>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-[0_0_30px_-20px_rgba(25,145,230,0.6)] backdrop-blur-sm">
-              <div className="flex items-center gap-2 text-sm text-white/85">
+            <div className="rounded-2xl border border-border bg-bg-primary/80 p-5 shadow-[0_0_30px_-20px_rgba(25,145,230,0.35)] backdrop-blur-sm">
+              <div className="flex items-center gap-2 text-sm text-text-secondary">
                 <Shield className="h-4 w-4" />
                 Admin drilldown
               </div>
               <p className="mt-3 text-3xl font-semibold">{downloads.overall}</p>
-              <p className="text-sm text-white/75">overall downloads</p>
+              <p className="text-sm text-text-secondary">overall downloads</p>
             </div>
           </div>
         </div>

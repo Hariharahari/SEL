@@ -5,6 +5,10 @@ import { z } from "zod";
 import {
   ACCESS_COOKIE_NAME,
   REFRESH_COOKIE_NAME,
+  buildDummyAccessToken,
+  buildDummyRefreshToken,
+  getDummyUserByCredentials,
+  getDummyUserProfile,
   getAuthErrorMessage,
   getCentralAuthUrl,
   normalizeRole,
@@ -18,17 +22,78 @@ const LoginSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
+    const body   = await req.json();
+    const parsed = LoginSchema.parse(body);
     const authUrl = getCentralAuthUrl();
+
+    const dummyUser = getDummyUserByCredentials(parsed.user_id, parsed.password);
+    if (dummyUser) {
+      let dbUser = null;
+      try {
+        dbUser = await prisma.user.upsert({
+          where: { id: dummyUser.user_id },
+          update: {
+            email: dummyUser.email,
+            role: toAppRole(dummyUser.role),
+          },
+          create: {
+            id: dummyUser.user_id,
+            email: dummyUser.email,
+            role: toAppRole(dummyUser.role),
+          },
+        });
+      } catch (err) {
+        console.error("Dummy DB sync error:", err);
+      }
+
+      const accessToken = buildDummyAccessToken(dummyUser.user_id);
+      const refreshToken = buildDummyRefreshToken(dummyUser.user_id);
+      const response = NextResponse.json({
+        success: true,
+        synced: !!(dbUser?.businessGroup && dbUser?.IOU && dbUser?.account),
+        access_token: accessToken,
+        refresh_token: refreshToken,
+        token_type: "bearer",
+        expires_in: 60 * 60 * 12,
+        must_change_password: false,
+        password_expired: false,
+        user_id: dummyUser.user_id,
+        email: dummyUser.email,
+        name: dummyUser.name,
+        role: dummyUser.role,
+        user: {
+          user_id: dummyUser.user_id,
+          email: dummyUser.email,
+          role: dummyUser.role,
+          dbData: dbUser,
+        },
+      });
+
+      const cookieOptions = {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        path: "/",
+      };
+
+      response.cookies.set(ACCESS_COOKIE_NAME, accessToken, {
+        ...cookieOptions,
+        maxAge: 60 * 60 * 12,
+      });
+
+      response.cookies.set(REFRESH_COOKIE_NAME, refreshToken, {
+        ...cookieOptions,
+        maxAge: 60 * 60 * 24 * 7,
+      });
+
+      return response;
+    }
+
     if (!authUrl) {
       return NextResponse.json(
         { success: false, synced: false, user: null, error: "Central auth URL is not configured" },
         { status: 500 }
       );
     }
-
-    // 1. validate body
-    const body   = await req.json();
-    const parsed = LoginSchema.parse(body);
 
     // 2. call central auth app
     let authData;

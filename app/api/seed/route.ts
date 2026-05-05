@@ -4,7 +4,6 @@
  */
 
 import { NextResponse } from 'next/server';
-import { saveAgent } from '@/lib/agentStore';
 import { SELAgentCard } from '@/types';
 
 const SAMPLE_AGENTS: SELAgentCard[] = [
@@ -239,33 +238,13 @@ const SAMPLE_AGENTS: SELAgentCard[] = [
 ];
 
 export async function GET() {
-  try {
-    let successCount = 0;
-    const results = [];
-
-    for (const agent of SAMPLE_AGENTS) {
-      const success = await saveAgent(agent);
-      if (success) {
-        successCount++;
-        results.push({ agentId: agent['agent id'], status: 'success' });
-      } else {
-        results.push({ agentId: agent['agent id'], status: 'failed' });
-      }
-    }
-
-    return NextResponse.json(
-      {
-        success: true,
-        message: `Seeded ${successCount} of ${SAMPLE_AGENTS.length} agents to Redis`,
-        results,
-      },
-      { status: 200 }
-    );
-  } catch (error) {
-    console.error('Error seeding agents:', error);
-    return NextResponse.json(
-      { error: 'Failed to seed agents', details: error instanceof Error ? error.message : 'Unknown error' },
-      { status: 500 }
-    );
-  }
+  return NextResponse.json(
+    {
+      success: false,
+      message:
+        'Seeding is disabled. SEL Ignite now keeps only manually uploaded skills in the live catalog.',
+      sampleCount: SAMPLE_AGENTS.length,
+    },
+    { status: 410 }
+  );
 }

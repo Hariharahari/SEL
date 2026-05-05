@@ -1,0 +1,18 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": "./.test-dist",
+    "rootDir": ".",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "declaration": false,
+    "sourceMap": true,
+    "incremental": false
+  },
+  "include": [
+    "tests/run-skillCard-tests.ts",
+    "lib/skillCard.ts",
+    "types/**/*.ts"
+  ]
+}

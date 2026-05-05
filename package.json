@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "npx tsc -p tsconfig.tests.json && node .test-dist/tests/run-skillCard-tests.js",
+    "test:coverage": "npx tsc -p tsconfig.tests.json && npx c8 --all --check-coverage --functions 90 --lines 90 --statements 90 --include .test-dist/lib/skillCard.js --reporter=text-summary --reporter=html --report-dir coverage/html node .test-dist/tests/run-skillCard-tests.js"
   },
   "dependencies": {
     "@ai-sdk/groq": "^3.0.35",
@@ -39,6 +41,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "c8": "^11.0.0",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
     "tailwindcss": "^4",
