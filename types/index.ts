@@ -87,6 +87,52 @@ export interface SubmissionAttachment {
   size: number;
 }
 
+export interface AgentMdIssue {
+  code: string;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  category: 'malicious_intent' | 'verbosity' | 'optimization' | 'clarity' | 'conflict';
+  message: string;
+  evidence?: string;
+}
+
+export interface AgentMdReviewReport {
+  fileName: string;
+  generatedAt: string;
+  model: string;
+  riskLevel: 'low' | 'medium' | 'high' | 'critical';
+  summary: string;
+  overallScore: number;
+  overallRating: number;
+  scores: {
+    maliciousIntent: number;
+    verbosity: number;
+    optimization: number;
+    clarity: number;
+  };
+  strengths: string[];
+  metrics: {
+    wordCount: number;
+    headingCount: number;
+    bulletCount: number;
+    codeBlockCount: number;
+    exampleCount: number;
+    directiveCount: number;
+    averageSentenceLength: number;
+  };
+  issues: AgentMdIssue[];
+  recommendations: string[];
+}
+
+export interface SubmissionActivityLogEntry {
+  type: 'submitted' | 'resubmitted' | 'approved' | 'rejected' | 'inactivated' | 'reactivated';
+  timestamp: string;
+  actorId?: string;
+  note?: string;
+  sourceFileNames?: string[];
+  status?: 'pending' | 'approved' | 'rejected';
+  revision?: number;
+}
+
 export interface SELAgentCard {
   "agent id": string;
   name: string;
@@ -109,6 +155,7 @@ export interface SELAgentCard {
   categoryOverride?: string;
   subcategoryOverride?: string;
   sourceFiles?: SubmissionAttachment[];
+  agentMdReview?: AgentMdReviewReport;
   ingestionSource?: 'manual-upload' | 'seed' | 'legacy';
   isActive?: boolean;
   inactiveAt?: string;

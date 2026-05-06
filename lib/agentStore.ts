@@ -1,6 +1,10 @@
 import 'server-only';
 import redis from './redis';
-import type { AgentAnalysis, SELAgentCard } from '@/types';
+import type {
+  AgentAnalysis,
+  SELAgentCard,
+  SubmissionActivityLogEntry,
+} from '@/types';
 import { removeVectorRecord } from './faiss';
 
 const LIVE_AGENTS_HASH_KEY = 'agents_catalog';
@@ -14,6 +18,8 @@ export interface AgentSubmissionRecord {
   status: AgentWorkflowStatus;
   submittedAt: string;
   submittedBy?: string;
+  revision: number;
+  activityLog: SubmissionActivityLogEntry[];
   reviewComment?: string;
   approvedAt?: string;
   approvedBy?: string;
@@ -22,6 +28,31 @@ export interface AgentSubmissionRecord {
   rejectionReason?: string;
   embeddingProvider?: string;
   analysis?: AgentAnalysis;
+}
+
+function buildActivityEntry(
+  entry: Omit<SubmissionActivityLogEntry, 'timestamp'> & { timestamp?: string }
+): SubmissionActivityLogEntry {
+  return {
+    ...entry,
+    timestamp: entry.timestamp || new Date().toISOString(),
+  };
+}
+
+async function updateSubmissionRecord(
+  hashKey: string,
+  agentId: string,
+  updater: (record: AgentSubmissionRecord) => AgentSubmissionRecord
+): Promise<AgentSubmissionRecord | null> {
+  const payload = await redis.hget(hashKey, agentId);
+  if (!payload) {
+    return null;
+  }
+
+  const record = JSON.parse(payload) as AgentSubmissionRecord;
+  const updatedRecord = updater(record);
+  await redis.hset(hashKey, agentId, JSON.stringify(updatedRecord));
+  return updatedRecord;
 }
 
 async function parseHashValues<T>(hashKey: string): Promise<T[]> {
@@ -113,13 +144,36 @@ export async function submitAgentForApproval(
   agent: SELAgentCard,
   submittedBy?: string
 ): Promise<AgentSubmissionRecord> {
+  const existingRecord =
+    (await getPendingAgentById(agent['agent id'])) || (await getReviewedAgentById(agent['agent id']));
+  const isResubmission = Boolean(existingRecord);
+  const revision = (existingRecord?.revision || 0) + 1;
+  const activityLog = [
+    ...(existingRecord?.activityLog || []),
+    buildActivityEntry({
+      type: isResubmission ? 'resubmitted' : 'submitted',
+      actorId: submittedBy,
+      note: isResubmission
+        ? 'Skill was edited and sent back for admin review.'
+        : 'Skill was submitted for admin review.',
+      sourceFileNames: agent.sourceFiles?.map((file) => file.name) || [],
+      status: 'pending',
+      revision,
+    }),
+  ];
   const record: AgentSubmissionRecord = {
-    agent,
+    agent: {
+      ...agent,
+      agentMdReview: undefined,
+    },
     status: 'pending',
     submittedAt: new Date().toISOString(),
-    submittedBy,
+    submittedBy: submittedBy || existingRecord?.submittedBy,
+    revision,
+    activityLog,
   };
 
+  await redis.hdel(REVIEWED_AGENTS_HASH_KEY, agent['agent id']);
   await redis.hset(PENDING_AGENTS_HASH_KEY, agent['agent id'], JSON.stringify(record));
   return record;
 }
@@ -150,6 +204,30 @@ export async function getReviewedAgents(): Promise<AgentSubmissionRecord[]> {
 
 export async function getSubmissionById(agentId: string): Promise<AgentSubmissionRecord | null> {
   return (await getPendingAgentById(agentId)) || (await getReviewedAgentById(agentId));
+}
+
+export async function setSubmissionAgentMdReview(
+  agentId: string,
+  report: NonNullable<SELAgentCard['agentMdReview']>
+): Promise<AgentSubmissionRecord | null> {
+  const pendingUpdated = await updateSubmissionRecord(PENDING_AGENTS_HASH_KEY, agentId, (record) => ({
+    ...record,
+    agent: {
+      ...record.agent,
+      agentMdReview: report,
+    },
+  }));
+  if (pendingUpdated) {
+    return pendingUpdated;
+  }
+
+  return updateSubmissionRecord(REVIEWED_AGENTS_HASH_KEY, agentId, (record) => ({
+    ...record,
+    agent: {
+      ...record.agent,
+      agentMdReview: report,
+    },
+  }));
 }
 
 export async function getSubmissionsForUser(userId: string): Promise<AgentSubmissionRecord[]> {
@@ -183,6 +261,16 @@ export async function markAgentApproved(
     approvedBy: options.approvedBy,
     embeddingProvider: options.embeddingProvider,
     analysis: options.analysis,
+    activityLog: [
+      ...(pendingRecord.activityLog || []),
+      buildActivityEntry({
+        type: 'approved',
+        actorId: options.approvedBy,
+        note: options.reviewComment?.trim() || 'Skill was approved and published.',
+        status: 'approved',
+        revision: pendingRecord.revision,
+      }),
+    ],
   };
 
   await saveApprovedAgent(approvedAgent);
@@ -207,6 +295,16 @@ export async function markAgentRejected(
     rejectedAt: new Date().toISOString(),
     rejectedBy,
     rejectionReason,
+    activityLog: [
+      ...(pendingRecord.activityLog || []),
+      buildActivityEntry({
+        type: 'rejected',
+        actorId: rejectedBy,
+        note: rejectionReason,
+        status: 'rejected',
+        revision: pendingRecord.revision,
+      }),
+    ],
   };
 
   await redis.hdel(PENDING_AGENTS_HASH_KEY, agentId);
@@ -232,6 +330,21 @@ export async function setAgentActiveState(agentId: string, isActive: boolean): P
   };
 
   await saveApprovedAgent(updatedAgent);
+  await updateSubmissionRecord(REVIEWED_AGENTS_HASH_KEY, agentId, (record) => ({
+    ...record,
+    agent: updatedAgent,
+    activityLog: [
+      ...(record.activityLog || []),
+      buildActivityEntry({
+        type: isActive ? 'reactivated' : 'inactivated',
+        note: isActive
+          ? 'Skill was returned to the live catalog.'
+          : 'Skill was removed from the live catalog and marked inactive.',
+        status: record.status,
+        revision: record.revision,
+      }),
+    ],
+  }));
   return updatedAgent;
 }
 

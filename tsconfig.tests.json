@@ -8,11 +8,16 @@
     "moduleResolution": "node",
     "declaration": false,
     "sourceMap": true,
-    "incremental": false
+    "incremental": false,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true
   },
   "include": [
-    "tests/run-skillCard-tests.ts",
+    "tests/**/*.ts",
     "lib/skillCard.ts",
+    "lib/attachmentNaming.ts",
+    "lib/categoryMapping.ts",
     "types/**/*.ts"
   ]
 }

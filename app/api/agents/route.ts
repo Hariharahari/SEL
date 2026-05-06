@@ -8,6 +8,8 @@ import {
   normalizeSkillUploadPayload,
 } from '@/lib/skillCard';
 import { saveSubmissionFiles } from '@/lib/submissionFiles';
+import { isSkillMarkdownAttachment } from '@/lib/attachmentNaming';
+import { generateAgentMdReview } from '@/lib/agentMdReview';
 
 export const POST = withAuth(async (request: NextRequest, { user }) => {
   try {
@@ -22,9 +24,16 @@ export const POST = withAuth(async (request: NextRequest, { user }) => {
         .getAll('attachments')
         .filter((entry): entry is File => entry instanceof File && entry.size > 0);
 
-      if (!attachments.some((file) => file.name.toLowerCase() === 'agent.md')) {
+      const markdownAttachments = attachments.filter((file) => file.name.toLowerCase().endsWith('.md'));
+      if (markdownAttachments.length === 0) {
         return NextResponse.json(
-          { error: 'agent.md is mandatory for every skill submission.' },
+          { error: 'A markdown agent file is mandatory for every skill submission.' },
+          { status: 400 }
+        );
+      }
+      if (markdownAttachments.length > 1) {
+        return NextResponse.json(
+          { error: 'Submit exactly one markdown prompt file for the skill.' },
           { status: 400 }
         );
       }
@@ -41,7 +50,14 @@ export const POST = withAuth(async (request: NextRequest, { user }) => {
     const { skillCard, agentCard } = normalizeSkillUploadPayload(body);
     if (attachments.length > 0) {
       agentCard.sourceFiles = await saveSubmissionFiles(skillCard.starterkit_id, attachments);
+      if (!agentCard.sourceFiles.some((file) => isSkillMarkdownAttachment(file.name))) {
+        return NextResponse.json(
+          { error: `The agent markdown file must be stored as "${skillCard.starterkit_id}-agent.md".` },
+          { status: 400 }
+        );
+      }
     }
+    agentCard.agentMdReview = (await generateAgentMdReview(agentCard)) || undefined;
     await submitAgent(agentCard, user.user_id);
 
     return NextResponse.json(

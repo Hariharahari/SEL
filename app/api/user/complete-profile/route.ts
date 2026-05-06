@@ -11,7 +11,6 @@ const ProfileSchema = z.object({
 });
 
 export const POST = withAuth(async (req: NextRequest, { user }) => {
-  await ensurePortalUser(user);
   // validate body
   const body   = await req.json();
   const parsed = ProfileSchema.safeParse(body);
@@ -24,8 +23,9 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
   }
 
   // update user profile in DB
+  const portalUser = await ensurePortalUser(user);
   const updatedUser = await prisma.user.update({
-    where: { id: user.user_id },
+    where: { id: portalUser.id },
     data: {
       businessGroup: parsed.data.businessGroup,
       IOU:           parsed.data.IOU,

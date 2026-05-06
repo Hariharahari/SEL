@@ -4,12 +4,13 @@ import { mkdir, writeFile } from 'fs/promises';
 import path from 'path';
 import { randomUUID } from 'crypto';
 import type { SubmissionAttachment } from '@/types';
+import {
+  buildSkillAttachmentFileName,
+  isSkillMarkdownAttachment,
+  sanitizeAttachmentFileName,
+} from './attachmentNaming';
 
 const SUBMISSION_ROOT = path.join(process.cwd(), 'storage', 'skill-submissions');
-
-function sanitizeFileName(fileName: string) {
-  return fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
-}
 
 export async function saveSubmissionFiles(
   skillId: string,
@@ -21,13 +22,14 @@ export async function saveSubmissionFiles(
 
   const attachments: SubmissionAttachment[] = [];
   for (const file of files) {
-    const safeName = sanitizeFileName(file.name);
+    const normalizedName = buildSkillAttachmentFileName(skillId, file.name, file.type || '');
+    const safeName = sanitizeAttachmentFileName(normalizedName);
     const absolutePath = path.join(targetDir, safeName);
     const bytes = Buffer.from(await file.arrayBuffer());
     await writeFile(absolutePath, bytes);
 
     attachments.push({
-      name: file.name,
+      name: safeName,
       relativePath: path.join(folderName, safeName).replace(/\\/g, '/'),
       absolutePath,
       mimeType: file.type || 'application/octet-stream',

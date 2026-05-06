@@ -18,7 +18,7 @@ import {
   Trash2,
   XCircle,
 } from 'lucide-react';
-import { authApi, tokenStorage } from '@/lib/auth';
+import { tokenStorage } from '@/lib/auth';
 import { getAgentCategory } from '@/lib/agentCategory';
 import type { SELAgentCard } from '@/types';
 
@@ -27,6 +27,7 @@ const AGENTS_PER_PAGE = 10;
 interface PendingAgentRecord {
   agent: SELAgentCard;
   submittedAt: string;
+  revision?: number;
 }
 
 interface AnalyticsResponse {
@@ -155,23 +156,11 @@ export default function AdminAnalyticsPage() {
   useEffect(() => {
     let active = true;
 
-    authApi.getCurrentUser().then((result) => {
+    loadData().catch((loadError) => {
       if (!active) return;
-      if (!result.success) {
-        router.push('/login');
-        return;
-      }
-      if (String(result.data.role).toUpperCase() !== 'ADMIN') {
-        setError('Admin access is required for this page.');
-        setIsLoading(false);
-        return;
-      }
-
-      loadData().catch((loadError) => {
-        console.error(loadError);
-        setError('Failed to load admin analytics.');
-        setIsLoading(false);
-      });
+      console.error(loadError);
+      setError('Failed to load admin analytics.');
+      setIsLoading(false);
     });
 
     return () => {
@@ -190,23 +179,6 @@ export default function AdminAnalyticsPage() {
   );
   const approvedPageCount = Math.max(1, Math.ceil(approvedAgents.length / AGENTS_PER_PAGE));
   const pendingPageCount = Math.max(1, Math.ceil(pendingAgents.length / AGENTS_PER_PAGE));
-
-  const handleApprove = async (skillId: string) => {
-    try {
-      const response = await fetch(`/api/admin/agents/${skillId}/approve`, {
-        method: 'POST',
-        headers,
-        credentials: 'include',
-      });
-      if (!response.ok) {
-        const payload = await response.json().catch(() => ({}));
-        throw new Error(payload.error || 'Failed to approve skill');
-      }
-      await loadData();
-    } catch (approveError) {
-      setError(approveError instanceof Error ? approveError.message : 'Failed to approve skill');
-    }
-  };
 
   const handleReject = async (skillId: string) => {
     const reason = window.prompt('Enter the reason for rejecting this skill:');
@@ -552,18 +524,17 @@ export default function AdminAnalyticsPage() {
                         {record.agent.description}
                       </p>
                       <p className="mt-3 text-xs text-text-muted">
-                        {record.agent.origin.org} • submitted{' '}
+                        {record.agent.origin.org} • revision {record.revision || 1} • submitted{' '}
                         {new Date(record.submittedAt).toLocaleString()}
                       </p>
                     </div>
                     <div className="flex gap-3">
-                      <button
-                        type="button"
-                        onClick={() => handleApprove(record.agent['agent id'])}
+                      <Link
+                        href={`/admin/review/${record.agent['agent id']}`}
                         className="sel-button-primary px-4 py-2 text-sm"
                       >
-                        Approve
-                      </button>
+                        Review
+                      </Link>
                       <button
                         type="button"
                         onClick={() => handleReject(record.agent['agent id'])}

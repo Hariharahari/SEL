@@ -129,6 +129,11 @@ export async function approveAgent(agentId: string, approvedBy: string, reviewCo
     pending.agent['agent id'],
     pending.agent.sourceFiles
   );
+  if (!publishedRepo.published) {
+    throw new Error(
+      `GitHub publish is required before approval. Configure GitHub access for ${publishedRepo.owner}/${publishedRepo.repo}@${publishedRepo.branch}.`
+    );
+  }
 
   const approvedAgent: SELAgentCard = {
     ...pending.agent,
@@ -136,7 +141,7 @@ export async function approveAgent(agentId: string, approvedBy: string, reviewCo
     analysis,
     categoryOverride: suggestedCategory.category,
     subcategoryOverride: suggestedCategory.subcategory,
-    github_url: publishedRepo.published ? publishedRepo.url : undefined,
+    github_url: publishedRepo.url,
     ingestionSource: 'manual-upload',
     isActive: true,
     inactiveAt: undefined,

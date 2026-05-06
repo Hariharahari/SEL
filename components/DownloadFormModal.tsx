@@ -101,6 +101,7 @@ export default function DownloadFormModal({
         setStep(payload.profileComplete ? 'details' : 'profile');
       } catch (error) {
         if (!active) return;
+        setStep('profile');
         setErrors({
           submit: error instanceof Error ? error.message : 'Failed to load download context.',
         });

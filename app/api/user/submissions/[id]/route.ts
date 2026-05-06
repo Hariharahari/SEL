@@ -8,6 +8,43 @@ import {
   normalizeSkillUploadPayload,
 } from '@/lib/skillCard';
 import { saveSubmissionFiles } from '@/lib/submissionFiles';
+import {
+  getSkillAttachmentSlot,
+  isSkillMarkdownAttachment,
+} from '@/lib/attachmentNaming';
+import type { SubmissionAttachment } from '@/types';
+import { generateAgentMdReview } from '@/lib/agentMdReview';
+
+function mergeSubmissionFiles(existingFiles: SubmissionAttachment[], newFiles: SubmissionAttachment[]) {
+  const mergedFiles = [...existingFiles];
+
+  for (const newFile of newFiles) {
+    const newSlot = getSkillAttachmentSlot(newFile.name, newFile.mimeType);
+
+    if (newSlot) {
+      for (let index = mergedFiles.length - 1; index >= 0; index -= 1) {
+        const existingSlot = getSkillAttachmentSlot(
+          mergedFiles[index].name,
+          mergedFiles[index].mimeType
+        );
+        if (existingSlot === newSlot) {
+          mergedFiles.splice(index, 1);
+        }
+      }
+    } else {
+      const duplicateIndex = mergedFiles.findIndex(
+        (existingFile) => existingFile.name.toLowerCase() === newFile.name.toLowerCase()
+      );
+      if (duplicateIndex >= 0) {
+        mergedFiles.splice(duplicateIndex, 1);
+      }
+    }
+
+    mergedFiles.push(newFile);
+  }
+
+  return mergedFiles;
+}
 
 export const PATCH = withAuth(async (request: NextRequest, { user, params }) => {
   const { id } = await params;
@@ -39,17 +76,22 @@ export const PATCH = withAuth(async (request: NextRequest, { user, params }) => 
     const { skillCard, agentCard } = normalizeSkillUploadPayload(body);
     const newSourceFiles =
       attachments.length > 0 ? await saveSubmissionFiles(skillCard.starterkit_id, attachments) : [];
-    const combinedSourceFiles = [...(submission.agent.sourceFiles || []), ...newSourceFiles];
+    const combinedSourceFiles = mergeSubmissionFiles(
+      submission.agent.sourceFiles || [],
+      newSourceFiles
+    );
+    const markdownFiles = combinedSourceFiles.filter((file) => isSkillMarkdownAttachment(file.name));
 
-    if (!combinedSourceFiles.some((file) => file.name.toLowerCase() === 'agent.md')) {
+    if (markdownFiles.length !== 1) {
       return NextResponse.json(
-        { error: 'agent.md is mandatory for every skill submission.' },
+        { error: 'Exactly one markdown prompt file must exist for the skill submission.' },
         { status: 400 }
       );
     }
 
     agentCard['agent id'] = submission.agent['agent id'];
     agentCard.sourceFiles = combinedSourceFiles;
+    agentCard.agentMdReview = (await generateAgentMdReview(agentCard)) || undefined;
 
     await submitAgent(agentCard, user.user_id);
 

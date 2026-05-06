@@ -15,6 +15,11 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 import { tokenStorage } from '@/lib/auth';
 import { SKILL_ID_PATTERN, wrapSkillCard } from '@/lib/skillCard';
+import {
+  buildSkillAttachmentFileName,
+  getSkillAttachmentSlot,
+  isSkillMarkdownAttachment,
+} from '@/lib/attachmentNaming';
 import type {
   SELAgentCard,
   SkillCardPayload,
@@ -172,14 +177,41 @@ function buildJsonTemplateFromAgent(agent: SELAgentCard) {
 }
 
 function mergeFiles(current: File[], incoming: File[]) {
-  const byName = new Map<string, File>();
-  for (const file of current) {
-    byName.set(file.name.toLowerCase(), file);
-  }
+  const merged = [...current];
+
   for (const file of incoming) {
-    byName.set(file.name.toLowerCase(), file);
+    const incomingSlot = getSkillAttachmentSlot(file.name, file.type || '');
+
+    if (incomingSlot) {
+      for (let index = merged.length - 1; index >= 0; index -= 1) {
+        const existingSlot = getSkillAttachmentSlot(merged[index].name, merged[index].type || '');
+        if (existingSlot === incomingSlot) {
+          merged.splice(index, 1);
+        }
+      }
+    } else {
+      const duplicateIndex = merged.findIndex(
+        (existingFile) => existingFile.name.toLowerCase() === file.name.toLowerCase()
+      );
+      if (duplicateIndex >= 0) {
+        merged.splice(duplicateIndex, 1);
+      }
+    }
+
+    merged.push(file);
   }
-  return Array.from(byName.values());
+
+  return merged;
+}
+
+function getSkillIdFromJsonPayload(jsonPayload: string) {
+  try {
+    const parsed = JSON.parse(jsonPayload);
+    const raw = parsed?.skill_card || parsed;
+    return typeof raw?.starterkit_id === 'string' ? raw.starterkit_id.trim() : '';
+  } catch {
+    return '';
+  }
 }
 
 export default function UploadForm({
@@ -267,10 +299,18 @@ export default function UploadForm({
   }, [editingSubmission]);
 
   const hasAgentMd = useMemo(() => {
-    const currentAttachments = attachments.some((file) => file.name.toLowerCase() === 'agent.md');
-    const currentExisting = existingFiles.some((file) => file.name.toLowerCase() === 'agent.md');
+    const currentAttachments = attachments.some((file) => isSkillMarkdownAttachment(file.name));
+    const currentExisting = existingFiles.some((file) => isSkillMarkdownAttachment(file.name));
     return currentAttachments || currentExisting;
   }, [attachments, existingFiles]);
+
+  const activeSkillId = useMemo(
+    () =>
+      uploadMode === 'json'
+        ? getSkillIdFromJsonPayload(jsonPayload) || form.starterkit_id.trim()
+        : form.starterkit_id.trim(),
+    [form.starterkit_id, jsonPayload, uploadMode]
+  );
 
   const updateForm = (field: keyof typeof form, value: string) => {
     setForm((current) => ({ ...current, [field]: value }));
@@ -662,7 +702,9 @@ export default function UploadForm({
           <div>
             <p className="font-medium text-text-primary">Attachments *</p>
             <p className="text-sm text-text-secondary">
-              Upload <code>agent.md</code>, one demo <code>.mp4</code> if available, plus any additional PDFs, images, or support artifacts.
+              Upload exactly one markdown agent file and one optional demo video. They will be stored as
+              <code className="mx-1">{activeSkillId || 'skill-id'}-agent.md</code> and
+              <code className="mx-1">{activeSkillId || 'skill-id'}.mp4</code>.
             </p>
           </div>
         </div>
@@ -709,7 +751,37 @@ export default function UploadForm({
           onChange={(event) => {
             const incoming = Array.from(event.target.files || []);
             if (!incoming.length) return;
-            setAttachments((current) => mergeFiles(current, incoming));
+            const normalizedIncoming =
+              activeSkillId
+                ? incoming.map(
+                    (file) =>
+                      new File(
+                        [file],
+                        buildSkillAttachmentFileName(activeSkillId, file.name, file.type || ''),
+                        { type: file.type || 'application/octet-stream' }
+                      )
+                  )
+                : incoming;
+            setExistingFiles((current) => {
+              const markdownIncoming = normalizedIncoming.some((file) =>
+                getSkillAttachmentSlot(file.name, file.type || '') === 'markdown'
+              );
+              const videoIncoming = normalizedIncoming.some((file) =>
+                getSkillAttachmentSlot(file.name, file.type || '') === 'video'
+              );
+
+              return current.filter((file) => {
+                const slot = getSkillAttachmentSlot(file.name, file.mimeType);
+                if (markdownIncoming && slot === 'markdown') {
+                  return false;
+                }
+                if (videoIncoming && slot === 'video') {
+                  return false;
+                }
+                return true;
+              });
+            });
+            setAttachments((current) => mergeFiles(current, normalizedIncoming));
             setFileInputKey((value) => value + 1);
           }}
           disabled={isLoading}
@@ -741,7 +813,10 @@ export default function UploadForm({
         )}
 
         {!hasAgentMd && (attachments.length > 0 || existingFiles.length > 0) && (
-          <p className="mt-3 text-sm text-error">agent.md is still missing from the file set.</p>
+          <p className="mt-3 text-sm text-error">
+            The required markdown file is missing. It must end up as
+            <code className="mx-1">{activeSkillId || 'skill-id'}-agent.md</code>.
+          </p>
         )}
       </div>
 

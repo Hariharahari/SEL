@@ -17,14 +17,23 @@
     "index": 1,
     "updatedAt": "2026-05-05T07:02:57.392Z"
   },
+  "secure-code-guard": {
+    "id": "secure-code-guard",
+    "kind": "agent",
+    "name": "Cyber Armor Guard",
+    "version": "2.1.0",
+    "status": "verified",
+    "index": 2,
+    "updatedAt": "2026-05-06T06:47:14.418Z"
+  },
   "java-api-docs-generator": {
     "id": "java-api-docs-generator",
     "kind": "agent",
     "name": "Java API Docs Generator",
     "version": "1.0.0",
     "status": "verified",
-    "index": 2,
-    "updatedAt": "2026-05-05T10:05:19.575Z"
+    "index": 3,
+    "updatedAt": "2026-05-06T07:00:47.581Z"
   },
   "java-backend-code-generator": {
     "id": "java-backend-code-generator",
@@ -32,7 +41,7 @@
     "name": "Java Backend Code Generator",
     "version": "1.0.0",
     "status": "verified",
-    "index": 3,
-    "updatedAt": "2026-05-05T10:06:12.976Z"
+    "index": 4,
+    "updatedAt": "2026-05-06T07:47:13.357Z"
   }
 }

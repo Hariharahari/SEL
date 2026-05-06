@@ -23,16 +23,40 @@ function isDatabaseConnectivityError(error: unknown) {
 }
 
 export async function ensurePortalUser(user: SyncableUser) {
-  return prisma.user.upsert({
+  const role = toAppRole(user.role);
+  const existingById = await prisma.user.findUnique({
     where: { id: user.user_id },
-    update: {
-      email: user.email,
-      role: toAppRole(user.role),
-    },
-    create: {
+  });
+
+  if (existingById) {
+    return prisma.user.update({
+      where: { id: user.user_id },
+      data: {
+        email: user.email,
+        role,
+      },
+    });
+  }
+
+  const existingByEmail = await prisma.user.findUnique({
+    where: { email: user.email },
+  });
+
+  if (existingByEmail) {
+    return prisma.user.update({
+      where: { email: user.email },
+      data: {
+        id: user.user_id,
+        role,
+      },
+    });
+  }
+
+  return prisma.user.create({
+    data: {
       id: user.user_id,
       email: user.email,
-      role: toAppRole(user.role),
+      role,
     },
   });
 }

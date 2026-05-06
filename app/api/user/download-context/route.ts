@@ -1,25 +1,38 @@
 import { NextResponse } from 'next/server';
 import { withAuth } from '@/lib/withAuth';
 import prisma from '@/lib/prisma';
-import { ensurePortalUser } from '@/lib/userSync';
+import {
+  ensurePortalUserSafe,
+  getPortalUserSafe,
+  isDatabaseConnectivityError,
+} from '@/lib/userSync';
 import { getAgentById } from '@/lib/agentStore';
 
 export const GET = withAuth(async (_req, { user }) => {
-  await ensurePortalUser(user);
+  const syncedUser = await ensurePortalUserSafe(user);
+  const dbUser = syncedUser || (await getPortalUserSafe(user.user_id));
 
-  const [dbUser, downloadCount, downloads] = await Promise.all([
-    prisma.user.findUnique({
-      where: { id: user.user_id },
-    }),
-    prisma.skillDownload.count({
-      where: { userId: user.user_id },
-    }),
-    prisma.skillDownload.findMany({
-      where: { userId: user.user_id },
-      orderBy: { downloadedAt: 'desc' },
-      take: 5,
-    }),
-  ]);
+  let downloadCount = 0;
+  let downloads: Awaited<ReturnType<typeof prisma.skillDownload.findMany>> = [];
+
+  try {
+    [downloadCount, downloads] = await Promise.all([
+      prisma.skillDownload.count({
+        where: { userId: user.user_id },
+      }),
+      prisma.skillDownload.findMany({
+        where: { userId: user.user_id },
+        orderBy: { downloadedAt: 'desc' },
+        take: 5,
+      }),
+    ]);
+  } catch (error) {
+    if (!isDatabaseConnectivityError(error)) {
+      throw error;
+    }
+
+    console.error('Download context history lookup skipped because PostgreSQL is unreachable:', error);
+  }
 
   const recentDownloads = await Promise.all(
     downloads.map(async (download) => {

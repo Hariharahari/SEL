@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import JSZip from 'jszip';
-import { readFile } from 'fs/promises';
 import { withAuth } from '@/lib/withAuth';
 import { getAgentById } from '@/lib/agentStore';
 import { recordAgentDownload } from '@/lib/agentWorkflow';
-import { resolveSubmissionFile } from '@/lib/submissionFiles';
 import { ensurePortalUser } from '@/lib/userSync';
 
 const GITHUB_API_BASE = 'https://api.github.com';
-const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
+const GITHUB_TOKEN =
+  process.env.GITHUB_TOKEN ||
+  process.env.GH_TOKEN ||
+  process.env.GITHUB_PAT ||
+  process.env.GIT_TOKEN ||
+  '';
 
 // Fetch file content from GitHub
 async function fetchGithubFile(
@@ -149,29 +152,9 @@ export const GET = withAuth(async (
       );
     }
 
-    if (!agent.github_url?.trim() && agent.sourceFiles?.length) {
-      const zip = new JSZip();
-      for (const file of agent.sourceFiles) {
-        const fileBuffer = await readFile(resolveSubmissionFile(file));
-        zip.file(file.name, fileBuffer);
-      }
-
-      const zipBuffer = await zip.generateAsync({ type: 'arraybuffer' });
-      await recordAgentDownload(agent['agent id'], agent.version, user.user_id, purpose);
-
-      return new NextResponse(zipBuffer, {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/zip',
-          'Content-Disposition': `attachment; filename="${agent.name.toLowerCase().replace(/\s+/g, '-')}-skill.zip"`,
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-        },
-      });
-    }
-
     if (!agent.github_url?.trim()) {
       return NextResponse.json(
-        { error: 'Skill does not have a downloadable repository or uploaded source files' },
+        { error: 'Skill is not published to GitHub yet.' },
         { status: 400 }
       );
     }
@@ -236,9 +219,7 @@ export const GET = withAuth(async (
         console.error(`No files found in GitHub path: ${owner}/${repo}/${agentPath}`, fallbackError);
         return NextResponse.json(
           {
-            error: GITHUB_TOKEN
-              ? 'No files found in repository'
-              : 'GitHub files were not available from the default repository, and no repository archive could be fetched.',
+            error: 'No files found in the published GitHub repository path.',
           },
           { status: 400 }
         );

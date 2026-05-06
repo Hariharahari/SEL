@@ -7,8 +7,12 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "npx tsc -p tsconfig.tests.json && node .test-dist/tests/run-skillCard-tests.js",
-    "test:coverage": "npx tsc -p tsconfig.tests.json && npx c8 --all --check-coverage --functions 90 --lines 90 --statements 90 --include .test-dist/lib/skillCard.js --reporter=text-summary --reporter=html --report-dir coverage/html node .test-dist/tests/run-skillCard-tests.js"
+    "test": "npx tsc -p tsconfig.tests.json && node .test-dist/tests/run-all-tests.js",
+    "test:coverage": "npx c8 --reporter=text --reporter=html npx tsc -p tsconfig.tests.json && node .test-dist/tests/run-all-tests.js",
+    "test:html": "npm run test && open coverage/test-report.html",
+    "test:json": "npm run test && cat coverage/test-report.json",
+    "test:watch": "nodemon --exec npm run test",
+    "migrate:github-skill-files": "npx tsx scripts/migrate-github-skill-files.ts"
   },
   "dependencies": {
     "@ai-sdk/groq": "^3.0.35",
